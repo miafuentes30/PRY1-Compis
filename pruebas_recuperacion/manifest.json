@@ -1,0 +1,20 @@
+[
+  {
+    "archivo": "01_recuperacion_lexica.cps",
+    "descripcion": "El lexer reporta dos caracteres inválidos y continúa hasta el final.",
+    "lexicos_minimos": 2,
+    "sintacticos_minimos": 0
+  },
+  {
+    "archivo": "02_recuperacion_sintactica.cps",
+    "descripcion": "El parser reporta varios errores sintácticos en una sola ejecución.",
+    "lexicos_minimos": 0,
+    "sintacticos_minimos": 2
+  },
+  {
+    "archivo": "03_recuperacion_mixta.cps",
+    "descripcion": "Lexer y parser continúan después de errores independientes en el mismo archivo.",
+    "lexicos_minimos": 2,
+    "sintacticos_minimos": 2
+  }
+]
