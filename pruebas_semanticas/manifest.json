@@ -1,0 +1,530 @@
+[
+  {
+    "archivo": "01_tipos_aritmeticos_ok.cps",
+    "regla": "Tipos: aritmética",
+    "esperado": "VÁLIDO",
+    "descripcion": "integer/float son aceptados en operaciones aritméticas.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "02_tipos_aritmeticos_error.cps",
+    "regla": "Tipos: aritmética",
+    "esperado": "ERROR",
+    "descripcion": "Un boolean no puede multiplicarse.",
+    "codigo_objetivo": "SEM_ARITHMETIC_TYPE",
+    "codigos_esperados": [
+      "SEM_ARITHMETIC_TYPE"
+    ]
+  },
+  {
+    "archivo": "03_tipos_logicos_ok.cps",
+    "regla": "Tipos: lógica",
+    "esperado": "VÁLIDO",
+    "descripcion": "&&, || y ! reciben boolean.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "04_tipos_logicos_error.cps",
+    "regla": "Tipos: lógica",
+    "esperado": "ERROR",
+    "descripcion": "&& rechaza integer.",
+    "codigo_objetivo": "SEM_LOGICAL_TYPE",
+    "codigos_esperados": [
+      "SEM_LOGICAL_TYPE"
+    ]
+  },
+  {
+    "archivo": "05_comparaciones_ok.cps",
+    "regla": "Tipos: comparaciones",
+    "esperado": "VÁLIDO",
+    "descripcion": "Comparaciones entre tipos compatibles.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "06_comparaciones_error.cps",
+    "regla": "Tipos: comparaciones",
+    "esperado": "ERROR",
+    "descripcion": "Comparación entre integer y string.",
+    "codigo_objetivo": "SEM_COMPARISON_TYPE",
+    "codigos_esperados": [
+      "SEM_COMPARISON_TYPE"
+    ]
+  },
+  {
+    "archivo": "07_asignacion_ok.cps",
+    "regla": "Tipos: asignación",
+    "esperado": "VÁLIDO",
+    "descripcion": "La asignación respeta el tipo declarado.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "08_asignacion_error.cps",
+    "regla": "Tipos: asignación",
+    "esperado": "ERROR",
+    "descripcion": "Asignar string a integer.",
+    "codigo_objetivo": "SEM_ASSIGN_TYPE",
+    "codigos_esperados": [
+      "SEM_ASSIGN_TYPE"
+    ]
+  },
+  {
+    "archivo": "09_constante_ok.cps",
+    "regla": "Constantes",
+    "esperado": "VÁLIDO",
+    "descripcion": "const se inicializa en su declaración.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "10_constante_reasignacion_error.cps",
+    "regla": "Constantes",
+    "esperado": "ERROR",
+    "descripcion": "Una constante no puede reasignarse.",
+    "codigo_objetivo": "SEM_CONST_ASSIGN",
+    "codigos_esperados": [
+      "SEM_CONST_ASSIGN"
+    ]
+  },
+  {
+    "archivo": "11_constante_sin_inicializar_error.cps",
+    "regla": "Constantes",
+    "esperado": "ERROR",
+    "descripcion": "La regla semántica exige inicializar const en la declaración.",
+    "codigo_objetivo": "SEM_CONST_INIT",
+    "codigos_esperados": [
+      "SEM_CONST_INIT"
+    ]
+  },
+  {
+    "archivo": "12_arreglos_ok.cps",
+    "regla": "Listas: elementos",
+    "esperado": "VÁLIDO",
+    "descripcion": "Arreglo homogéneo de integer.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "13_arreglos_elementos_error.cps",
+    "regla": "Listas: elementos",
+    "esperado": "ERROR",
+    "descripcion": "Un arreglo no debe mezclar integer y string.",
+    "codigo_objetivo": "SEM_ARRAY_ELEMENT_TYPE",
+    "codigos_esperados": [
+      "SEM_ARRAY_ELEMENT_TYPE"
+    ]
+  },
+  {
+    "archivo": "14_indice_error.cps",
+    "regla": "Listas: índices",
+    "esperado": "ERROR",
+    "descripcion": "El índice debe ser integer.",
+    "codigo_objetivo": "SEM_INDEX_TYPE",
+    "codigos_esperados": [
+      "SEM_INDEX_TYPE"
+    ]
+  },
+  {
+    "archivo": "15_indice_no_arreglo_error.cps",
+    "regla": "Listas: índices",
+    "esperado": "ERROR",
+    "descripcion": "Solo los arreglos pueden indexarse.",
+    "codigo_objetivo": "SEM_INDEX_NON_ARRAY",
+    "codigos_esperados": [
+      "SEM_INDEX_NON_ARRAY"
+    ]
+  },
+  {
+    "archivo": "16_ambitos_ok.cps",
+    "regla": "Ámbitos",
+    "esperado": "VÁLIDO",
+    "descripcion": "Resolución global/local y sombreado en bloques anidados.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "17_no_declarada_error.cps",
+    "regla": "Ámbitos",
+    "esperado": "ERROR",
+    "descripcion": "Uso de identificador no declarado.",
+    "codigo_objetivo": "SEM_UNDECLARED",
+    "codigos_esperados": [
+      "SEM_UNDECLARED"
+    ]
+  },
+  {
+    "archivo": "18_redeclaracion_error.cps",
+    "regla": "Ámbitos",
+    "esperado": "ERROR",
+    "descripcion": "No se permite redeclarar en el mismo ámbito.",
+    "codigo_objetivo": "SEM_DUPLICATE",
+    "codigos_esperados": [
+      "SEM_DUPLICATE"
+    ]
+  },
+  {
+    "archivo": "19_funcion_argumentos_ok.cps",
+    "regla": "Funciones: argumentos",
+    "esperado": "VÁLIDO",
+    "descripcion": "Número y tipos de argumentos correctos.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "20_funcion_cantidad_error.cps",
+    "regla": "Funciones: argumentos",
+    "esperado": "ERROR",
+    "descripcion": "Cantidad incorrecta de argumentos.",
+    "codigo_objetivo": "SEM_ARGUMENT_COUNT",
+    "codigos_esperados": [
+      "SEM_ARGUMENT_COUNT"
+    ]
+  },
+  {
+    "archivo": "21_funcion_tipo_argumento_error.cps",
+    "regla": "Funciones: argumentos",
+    "esperado": "ERROR",
+    "descripcion": "Tipo incorrecto de argumento posicional.",
+    "codigo_objetivo": "SEM_ARGUMENT_TYPE",
+    "codigos_esperados": [
+      "SEM_ARGUMENT_TYPE"
+    ]
+  },
+  {
+    "archivo": "22_retorno_ok.cps",
+    "regla": "Funciones: retorno",
+    "esperado": "VÁLIDO",
+    "descripcion": "El return coincide con el tipo declarado.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "23_retorno_error.cps",
+    "regla": "Funciones: retorno",
+    "esperado": "ERROR",
+    "descripcion": "El return no coincide con el tipo declarado.",
+    "codigo_objetivo": "SEM_RETURN_TYPE",
+    "codigos_esperados": [
+      "SEM_RETURN_TYPE"
+    ]
+  },
+  {
+    "archivo": "24_recursion_ok.cps",
+    "regla": "Funciones: recursión",
+    "esperado": "VÁLIDO",
+    "descripcion": "La función se resuelve a sí misma.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "25_closure_ok.cps",
+    "regla": "Funciones: closures",
+    "esperado": "VÁLIDO",
+    "descripcion": "Una función anidada captura una variable exterior.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "26_funcion_duplicada_error.cps",
+    "regla": "Funciones: duplicados",
+    "esperado": "ERROR",
+    "descripcion": "Dos funciones del mismo nombre en un ámbito.",
+    "codigo_objetivo": "SEM_DUPLICATE",
+    "codigos_esperados": [
+      "SEM_DUPLICATE"
+    ]
+  },
+  {
+    "archivo": "27_parametro_duplicado_error.cps",
+    "regla": "Funciones: parámetros",
+    "esperado": "ERROR",
+    "descripcion": "Parámetros duplicados en la misma función.",
+    "codigo_objetivo": "SEM_DUPLICATE_PARAM",
+    "codigos_esperados": [
+      "SEM_DUPLICATE_PARAM"
+    ]
+  },
+  {
+    "archivo": "28_condiciones_ok.cps",
+    "regla": "Control: condiciones",
+    "esperado": "VÁLIDO",
+    "descripcion": "if/while/do-while/for/switch reciben boolean.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "29_condicion_if_error.cps",
+    "regla": "Control: condiciones",
+    "esperado": "ERROR",
+    "descripcion": "if con condición integer.",
+    "codigo_objetivo": "SEM_CONDITION_BOOL",
+    "codigos_esperados": [
+      "SEM_CONDITION_BOOL"
+    ]
+  },
+  {
+    "archivo": "30_condicion_switch_error.cps",
+    "regla": "Control: condiciones",
+    "esperado": "ERROR",
+    "descripcion": "El enunciado exige boolean para switch.",
+    "codigo_objetivo": "SEM_CONDITION_BOOL",
+    "codigos_esperados": [
+      "SEM_CONDITION_BOOL"
+    ]
+  },
+  {
+    "archivo": "31_break_continue_ok.cps",
+    "regla": "Control: break/continue",
+    "esperado": "VÁLIDO",
+    "descripcion": "break/continue dentro de bucles.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "32_break_error.cps",
+    "regla": "Control: break/continue",
+    "esperado": "ERROR",
+    "descripcion": "break fuera de un bucle.",
+    "codigo_objetivo": "SEM_BREAK_OUTSIDE_LOOP",
+    "codigos_esperados": [
+      "SEM_BREAK_OUTSIDE_LOOP"
+    ]
+  },
+  {
+    "archivo": "33_continue_error.cps",
+    "regla": "Control: break/continue",
+    "esperado": "ERROR",
+    "descripcion": "continue fuera de un bucle.",
+    "codigo_objetivo": "SEM_CONTINUE_OUTSIDE_LOOP",
+    "codigos_esperados": [
+      "SEM_CONTINUE_OUTSIDE_LOOP"
+    ]
+  },
+  {
+    "archivo": "34_return_fuera_error.cps",
+    "regla": "Control: return",
+    "esperado": "ERROR",
+    "descripcion": "return fuera de función.",
+    "codigo_objetivo": "SEM_RETURN_OUTSIDE_FUNCTION",
+    "codigos_esperados": [
+      "SEM_RETURN_OUTSIDE_FUNCTION"
+    ]
+  },
+  {
+    "archivo": "35_clases_ok.cps",
+    "regla": "Clases: miembros/constructor/this",
+    "esperado": "VÁLIDO",
+    "descripcion": "Acceso a atributo/método, constructor y this válidos.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "36_miembro_inexistente_error.cps",
+    "regla": "Clases: miembros",
+    "esperado": "ERROR",
+    "descripcion": "Acceso a miembro no declarado.",
+    "codigo_objetivo": "SEM_UNKNOWN_MEMBER",
+    "codigos_esperados": [
+      "SEM_UNKNOWN_MEMBER"
+    ]
+  },
+  {
+    "archivo": "37_constructor_error.cps",
+    "regla": "Clases: constructor",
+    "esperado": "ERROR",
+    "descripcion": "Constructor llamado con tipo incorrecto.",
+    "codigo_objetivo": "SEM_ARGUMENT_TYPE",
+    "codigos_esperados": [
+      "SEM_ARGUMENT_TYPE"
+    ]
+  },
+  {
+    "archivo": "38_this_error.cps",
+    "regla": "Clases: this",
+    "esperado": "ERROR",
+    "descripcion": "this fuera de una clase.",
+    "codigo_objetivo": "SEM_THIS_OUTSIDE_CLASS",
+    "codigos_esperados": [
+      "SEM_THIS_OUTSIDE_CLASS"
+    ]
+  },
+  {
+    "archivo": "39_herencia_ok.cps",
+    "regla": "Clases: herencia",
+    "esperado": "VÁLIDO",
+    "descripcion": "Los miembros heredados se resuelven.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "40_codigo_muerto_error.cps",
+    "regla": "Generales: código muerto",
+    "esperado": "ERROR",
+    "descripcion": "Instrucción posterior a return.",
+    "codigo_objetivo": "SEM_DEAD_CODE",
+    "codigos_esperados": [
+      "SEM_DEAD_CODE"
+    ]
+  },
+  {
+    "archivo": "41_expresion_sin_sentido_error.cps",
+    "regla": "Generales: expresiones",
+    "esperado": "ERROR",
+    "descripcion": "Una función no puede multiplicarse.",
+    "codigo_objetivo": "SEM_ARITHMETIC_TYPE",
+    "codigos_esperados": [
+      "SEM_ARITHMETIC_TYPE"
+    ]
+  },
+  {
+    "archivo": "42_scope_funcion_ok.cps",
+    "regla": "Tabla: ámbito de función",
+    "esperado": "VÁLIDO",
+    "descripcion": "Los parámetros viven en el entorno de la función.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "43_scope_clase_ok.cps",
+    "regla": "Tabla: ámbito de clase",
+    "esperado": "VÁLIDO",
+    "descripcion": "Los miembros viven en un entorno de clase.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "44_multiples_errores_recuperacion.cps",
+    "regla": "Recuperación semántica",
+    "esperado": "3 ERRORES",
+    "descripcion": "El visitor continúa y reporta varios errores independientes.",
+    "codigo_objetivo": "MULTI",
+    "codigos_esperados": [
+      "SEM_ASSIGN_TYPE",
+      "SEM_UNDECLARED",
+      "SEM_BREAK_OUTSIDE_LOOP"
+    ]
+  },
+  {
+    "archivo": "45_retorno_faltante_error.cps",
+    "regla": "Funciones: retorno obligatorio",
+    "esperado": "ERROR",
+    "descripcion": "Una función con retorno integer no puede finalizar sin devolver un valor.",
+    "codigo_objetivo": "SEM_MISSING_RETURN",
+    "codigos_esperados": [
+      "SEM_MISSING_RETURN"
+    ]
+  },
+  {
+    "archivo": "46_retorno_if_else_ok.cps",
+    "regla": "Funciones: retorno por caminos",
+    "esperado": "VÁLIDO",
+    "descripcion": "Ambas ramas de if/else devuelven el tipo declarado.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "47_retorno_rama_incompleta_error.cps",
+    "regla": "Funciones: retorno por caminos",
+    "esperado": "ERROR",
+    "descripcion": "Un if sin else deja un camino que alcanza el final sin return.",
+    "codigo_objetivo": "SEM_MISSING_RETURN",
+    "codigos_esperados": [
+      "SEM_MISSING_RETURN"
+    ]
+  },
+  {
+    "archivo": "48_break_funcion_anidada_error.cps",
+    "regla": "Control: break en función anidada",
+    "esperado": "ERROR",
+    "descripcion": "Un loop exterior no habilita break dentro de una función anidada.",
+    "codigo_objetivo": "SEM_BREAK_OUTSIDE_LOOP",
+    "codigos_esperados": [
+      "SEM_BREAK_OUTSIDE_LOOP"
+    ]
+  },
+  {
+    "archivo": "49_continue_funcion_anidada_error.cps",
+    "regla": "Control: continue en función anidada",
+    "esperado": "ERROR",
+    "descripcion": "Un loop exterior no habilita continue dentro de una función anidada.",
+    "codigo_objetivo": "SEM_CONTINUE_OUTSIDE_LOOP",
+    "codigos_esperados": [
+      "SEM_CONTINUE_OUTSIDE_LOOP"
+    ]
+  },
+  {
+    "archivo": "50_loop_propio_funcion_anidada_ok.cps",
+    "regla": "Control: loop propio en función anidada",
+    "esperado": "VÁLIDO",
+    "descripcion": "break es válido cuando la función anidada crea su propio loop.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "51_codigo_muerto_if_else_error.cps",
+    "regla": "Generales: código muerto por if/else",
+    "esperado": "ERROR",
+    "descripcion": "Si ambas ramas de if/else retornan, la instrucción posterior es inalcanzable.",
+    "codigo_objetivo": "SEM_DEAD_CODE",
+    "codigos_esperados": [
+      "SEM_DEAD_CODE"
+    ]
+  },
+  {
+    "archivo": "52_codigo_muerto_try_catch_error.cps",
+    "regla": "Generales: código muerto por try/catch",
+    "esperado": "ERROR",
+    "descripcion": "Si try y catch retornan, la instrucción posterior es inalcanzable.",
+    "codigo_objetivo": "SEM_DEAD_CODE",
+    "codigos_esperados": [
+      "SEM_DEAD_CODE"
+    ]
+  },
+  {
+    "archivo": "53_relacional_boolean_error.cps",
+    "regla": "Sistema de tipos: comparación relacional",
+    "esperado": "ERROR",
+    "descripcion": "Los boolean no son operandos válidos para <, <=, > o >=.",
+    "codigo_objetivo": "SEM_COMPARISON_TYPE",
+    "codigos_esperados": [
+      "SEM_COMPARISON_TYPE"
+    ]
+  },
+  {
+    "archivo": "54_relacional_arreglo_error.cps",
+    "regla": "Sistema de tipos: comparación relacional",
+    "esperado": "ERROR",
+    "descripcion": "Los arreglos no son operandos válidos para comparaciones relacionales.",
+    "codigo_objetivo": "SEM_COMPARISON_TYPE",
+    "codigos_esperados": [
+      "SEM_COMPARISON_TYPE"
+    ]
+  },
+  {
+    "archivo": "55_relacional_string_ok.cps",
+    "regla": "Sistema de tipos: comparación relacional",
+    "esperado": "VÁLIDO",
+    "descripcion": "Dos string pueden compararse relacionalmente de forma lexicográfica.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "56_arreglo_vacio_tipado_ok.cps",
+    "regla": "Listas: arreglo vacío con tipo explícito",
+    "esperado": "VÁLIDO",
+    "descripcion": "Un arreglo vacío es compatible con el tipo de arreglo declarado explícitamente.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "57_arreglo_vacio_anidado_ok.cps",
+    "regla": "Listas: arreglos vacíos anidados",
+    "esperado": "VÁLIDO",
+    "descripcion": "Los arreglos vacíos pueden tomar el tipo contextual dentro de arreglos multidimensionales.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  }
+]
