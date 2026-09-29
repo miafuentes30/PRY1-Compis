@@ -1,2 +1,2 @@
-let x: integer = 1;
-switch (x) { case 1: print(x); }
+let xs: integer[] = [1];
+switch (xs) { case [1]: print(1); }

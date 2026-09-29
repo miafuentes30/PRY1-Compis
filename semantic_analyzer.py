@@ -66,6 +66,7 @@ class SemanticAnalyzer(CompiscriptVisitor):
         self.function_stack: list[Symbol] = []
         self.class_stack: list[str] = []
         self.loop_depth = 0
+        self.switch_depth = 0
         self._block_counter = 0
 
     # ------------------------------------------------------------------
@@ -338,7 +339,9 @@ class SemanticAnalyzer(CompiscriptVisitor):
         # válidos en el contexto actual; así evitamos errores derivados.
         if stmt.returnStatement() is not None:
             return bool(self.function_stack)
-        if stmt.breakStatement() is not None or stmt.continueStatement() is not None:
+        if stmt.breakStatement() is not None:
+            return self.loop_depth > 0 or self.switch_depth > 0
+        if stmt.continueStatement() is not None:
             return self.loop_depth > 0
 
         nested_block = stmt.block()
@@ -519,7 +522,7 @@ class SemanticAnalyzer(CompiscriptVisitor):
 
     def visitBlock(self, ctx: CompiscriptParser.BlockContext):
         self._block_counter += 1
-        self.symbols.enter_scope(f"bloque_{self._block_counter}", "block")
+        ctx._tac_scope_id = self.symbols.enter_scope(f"bloque_{self._block_counter}", "block")
         try:
             self._predeclare_statements(ctx.statement())
             self._visit_statement_sequence(ctx.statement())
@@ -658,10 +661,12 @@ class SemanticAnalyzer(CompiscriptVisitor):
         # Cada función tiene su propio contexto de control. Un loop exterior no
         # habilita break/continue dentro de una función anidada.
         outer_loop_depth = self.loop_depth
+        outer_switch_depth = self.switch_depth
 
-        self.symbols.enter_scope(f"{symbol.kind}_{symbol.name}", symbol.kind)
+        ctx._tac_scope_id = self.symbols.enter_scope(f"{symbol.kind}_{symbol.name}", symbol.kind)
         self.function_stack.append(symbol)
         self.loop_depth = 0
+        self.switch_depth = 0
         try:
             seen_params: set[str] = set()
             param_contexts = ctx.parameters().parameter() if ctx.parameters() is not None else []
@@ -705,6 +710,7 @@ class SemanticAnalyzer(CompiscriptVisitor):
                 )
         finally:
             self.loop_depth = outer_loop_depth
+            self.switch_depth = outer_switch_depth
             self.function_stack.pop()
             self.symbols.exit_scope()
 
@@ -732,7 +738,7 @@ class SemanticAnalyzer(CompiscriptVisitor):
                     "Selecciona una clase padre diferente.",
                 )
 
-        self.symbols.enter_scope(f"class_{info.name}", "class")
+        ctx._tac_scope_id = self.symbols.enter_scope(f"class_{info.name}", "class")
         self.class_stack.append(info.name)
         try:
             # Los miembros se registran en el alcance de clase para la tabla de símbolos.
@@ -835,7 +841,7 @@ class SemanticAnalyzer(CompiscriptVisitor):
         return None
 
     def visitForStatement(self, ctx: CompiscriptParser.ForStatementContext):
-        self.symbols.enter_scope("for", "loop")
+        ctx._tac_scope_id = self.symbols.enter_scope("for", "loop")
         self.loop_depth += 1
         try:
             if ctx.variableDeclaration() is not None:
@@ -845,11 +851,14 @@ class SemanticAnalyzer(CompiscriptVisitor):
             expressions = ctx.expression()
             if not isinstance(expressions, list):
                 expressions = [expressions] if expressions is not None else []
-            if expressions:
-                cond = (self._safe_visit(expressions[0]) or ExprInfo(UNKNOWN)).type_name
-                self._require_boolean(expressions[0], cond, "for")
-                for expr in expressions[1:]:
-                    self._safe_visit(expr)
+            # ctx.expression() omits empty slots: locate the condition using
+            # its token position relative to the *last* header semicolon.
+            delimiters = [node for node in ctx.children if node.getText() == ';']
+            boundary = delimiters[-1].symbol.tokenIndex if delimiters else -1
+            for expr in expressions:
+                value_type = (self._safe_visit(expr) or ExprInfo(UNKNOWN)).type_name
+                if expr.start.tokenIndex < boundary:
+                    self._require_boolean(expr, value_type, "for")
             self._safe_visit(ctx.block())
         finally:
             self.loop_depth -= 1
@@ -867,7 +876,7 @@ class SemanticAnalyzer(CompiscriptVisitor):
                 f"foreach requiere un arreglo, pero la expresión produce {iterable}.",
                 "Itera sobre una variable o expresión de tipo T[].",
             )
-        self.symbols.enter_scope("foreach", "loop")
+        ctx._tac_scope_id = self.symbols.enter_scope("foreach", "loop")
         self.loop_depth += 1
         try:
             tok = ctx.Identifier().getSymbol()
@@ -889,13 +898,13 @@ class SemanticAnalyzer(CompiscriptVisitor):
         return None
 
     def visitBreakStatement(self, ctx: CompiscriptParser.BreakStatementContext):
-        if self.loop_depth <= 0:
+        if self.loop_depth <= 0 and self.switch_depth <= 0:
             self._error(
                 ctx,
                 "SEM_BREAK_OUTSIDE_LOOP",
                 "break",
-                "break solo puede utilizarse dentro de un bucle.",
-                "Mueve break al interior de for, foreach, while o do-while.",
+                "break solo puede utilizarse dentro de un bucle o switch.",
+                "Mueve break al interior de for, foreach, while, do-while o switch.",
             )
         return None
 
@@ -956,7 +965,7 @@ class SemanticAnalyzer(CompiscriptVisitor):
     def visitTryCatchStatement(self, ctx: CompiscriptParser.TryCatchStatementContext):
         blocks = ctx.block()
         self._safe_visit(blocks[0])
-        self.symbols.enter_scope("catch", "catch")
+        ctx._tac_catch_scope_id = self.symbols.enter_scope("catch", "catch")
         try:
             tok = ctx.Identifier().getSymbol()
             self.symbols.insert(
@@ -977,9 +986,15 @@ class SemanticAnalyzer(CompiscriptVisitor):
 
     def visitSwitchStatement(self, ctx: CompiscriptParser.SwitchStatementContext):
         switch_type = (self._safe_visit(ctx.expression()) or ExprInfo(UNKNOWN)).type_name
-        # El enunciado del proyecto exige explícitamente boolean para switch.
-        self._require_boolean(ctx.expression(), switch_type, "switch")
-        self.symbols.enter_scope("switch", "switch")
+        # La definición pública permite switch sobre escalares (ejemplo: integer).
+        if switch_type not in {UNKNOWN, "boolean", "integer", "float", "string"}:
+            self._error(
+                ctx.expression(), "SEM_CONDITION_TYPE", switch_type,
+                f"switch requiere un valor escalar comparable, no {switch_type}.",
+                "Usa una expresión integer, float, string o boolean como discriminante.",
+            )
+        ctx._tac_scope_id = self.symbols.enter_scope("switch", "switch")
+        self.switch_depth += 1
         try:
             for case in ctx.switchCase():
                 case_type = (self._safe_visit(case.expression()) or ExprInfo(UNKNOWN)).type_name
@@ -995,6 +1010,7 @@ class SemanticAnalyzer(CompiscriptVisitor):
             if ctx.defaultCase() is not None:
                 self._visit_statement_sequence(ctx.defaultCase().statement())
         finally:
+            self.switch_depth -= 1
             self.symbols.exit_scope()
         return None
 

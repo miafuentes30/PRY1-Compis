@@ -269,10 +269,10 @@
     "archivo": "30_condicion_switch_error.cps",
     "regla": "Control: condiciones",
     "esperado": "ERROR",
-    "descripcion": "El enunciado exige boolean para switch.",
-    "codigo_objetivo": "SEM_CONDITION_BOOL",
+    "descripcion": "switch sobre arreglo debe rechazarse; switch sobre entero es válido según la definición pública.",
+    "codigo_objetivo": "SEM_CONDITION_TYPE",
     "codigos_esperados": [
-      "SEM_CONDITION_BOOL"
+      "SEM_CONDITION_TYPE"
     ]
   },
   {
