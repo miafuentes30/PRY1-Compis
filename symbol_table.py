@@ -18,6 +18,11 @@ class Symbol:
     return_type: str = "void"
     owner_class: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    tac_name: str = ""
+    storage_class: str = ""
+    offset: int | None = None
+    size: int = 0
+    frame_name: str = ""
 
     @property
     def signature(self) -> str:
@@ -50,6 +55,7 @@ class SymbolTable:
         }
         self.current_scope_id = 0
         self._next_scope_id = 1
+        self.activation_records: dict[str, dict[str, Any]] = {}
 
     @property
     def current_scope(self) -> Scope:
@@ -152,6 +158,70 @@ class SymbolTable:
                         "line": symbol.line,
                         "column": symbol.column,
                         "owner_class": symbol.owner_class or "",
+                        "tac_name": symbol.tac_name,
+                        "storage_class": symbol.storage_class,
+                        "offset": symbol.offset,
+                        "frame_name": symbol.frame_name,
                     }
                 )
         return rows
+
+    def plan_storage(self, classes=None) -> dict[str, dict[str, Any]]:
+        """Planifica slots abstractos (8 bytes) por registro de activación.
+
+        Direcciones relativas, no direcciones reales ni ejecución. Los ámbitos
+        de bloques comparten el frame de su función contenedora; cada llamada
+        tiene una nueva instancia de ese frame (incluida la recursión).
+        """
+        frames: dict[str, dict[str, Any]] = {'<global>': {'parameters': 0, 'locals': 0, 'bytes': 0}}
+        class_offsets = {}
+        if classes:
+            def layout(cls_name):
+                if cls_name in class_offsets: return class_offsets[cls_name]
+                info = classes[cls_name]
+                parent_count = layout(info.parent) if info.parent in classes else 0
+                for idx, symbol in enumerate(info.attributes.values(), parent_count):
+                    symbol.offset = idx * 8
+                    symbol.size = 8
+                    symbol.storage_class = 'field'
+                class_offsets[cls_name] = parent_count + len(info.attributes)
+                return class_offsets[cls_name]
+            for cls_name in classes: layout(cls_name)
+        for scope_id in sorted(self.scopes):
+            scope = self.scopes[scope_id]
+            ancestor = scope
+            while ancestor.parent_id is not None and ancestor.kind not in {'function', 'method'}:
+                ancestor = self.scopes[ancestor.parent_id]
+            if ancestor.kind in {'function', 'method'}:
+                enclosing = self.lookup(ancestor.name.split('_', 1)[1], ancestor.parent_id)
+                frame = f'{enclosing.tac_name if enclosing else ancestor.name}@s{ancestor.id}'
+            else:
+                frame = '<global>' 
+            frame_data = frames.setdefault(frame, {'parameters': 0, 'locals': 0, 'bytes': 0})
+            for symbol in scope.symbols.values():
+                symbol.frame_name = frame
+                if symbol.kind in {'function', 'method'}:
+                    symbol.tac_name = (f'{symbol.owner_class}.{symbol.name}' if symbol.owner_class
+                                       else f'{symbol.name}@s{scope.id}')
+                    symbol.storage_class, symbol.offset, symbol.size = 'code', None, 0
+                elif symbol.kind == 'class':
+                    symbol.tac_name = symbol.name
+                    symbol.storage_class, symbol.offset, symbol.size = 'type', None, 0
+                elif scope.kind == 'class' or symbol.kind == 'attribute':
+                    symbol.tac_name = f'{symbol.owner_class or scope.name.removeprefix("class_")}.{symbol.name}'
+                    symbol.storage_class, symbol.size = 'field', 8
+                    if classes and symbol.owner_class in classes and symbol.name in classes[symbol.owner_class].attributes:
+                        symbol.offset = classes[symbol.owner_class].attributes[symbol.name].offset
+                elif symbol.kind == 'parameter':
+                    frame_data['parameters'] += 1
+                    symbol.tac_name = f'{symbol.name}@s{scope.id}'
+                    symbol.storage_class, symbol.offset, symbol.size = 'parameter', 16 + 8 * (frame_data['parameters'] - 1), 8
+                else:
+                    frame_data['locals'] += 1
+                    symbol.tac_name = f'{symbol.name}@s{scope.id}'
+                    symbol.storage_class = 'global' if frame == '<global>' else 'local'
+                    symbol.offset = -8 * frame_data['locals'] if frame != '<global>' else 8 * (frame_data['locals'] - 1)
+                    symbol.size = 8
+            frame_data['bytes'] = frame_data['locals'] * 8
+        self.activation_records = frames
+        return frames
