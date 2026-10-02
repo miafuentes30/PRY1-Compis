@@ -1,0 +1,279 @@
+[
+  {
+    "archivo": "01_variables.cps",
+    "categoria": "variables_constantes",
+    "valido": true,
+    "contiene": [
+      "a@s0 = 5",
+      "b@s0 = 7",
+      "a@s0 = t"
+    ]
+  },
+  {
+    "archivo": "02_aritmetica.cps",
+    "categoria": "aritmetica",
+    "valido": true,
+    "contiene": [
+      " + ",
+      " * ",
+      " - "
+    ]
+  },
+  {
+    "archivo": "03_logica.cps",
+    "categoria": "logica",
+    "valido": true,
+    "contiene": [
+      "if ",
+      "ifFalse ",
+      "goto "
+    ]
+  },
+  {
+    "archivo": "04_cortocircuito.cps",
+    "categoria": "cortocircuito",
+    "valido": true,
+    "contiene": [
+      "ifFalse ",
+      " / "
+    ]
+  },
+  {
+    "archivo": "05_matriz.cps",
+    "categoria": "arreglos_multidimensionales",
+    "valido": true,
+    "contiene": [
+      "new_array",
+      "[1]",
+      "[0]"
+    ]
+  },
+  {
+    "archivo": "06_asignacion_indice.cps",
+    "categoria": "asignar_elemento",
+    "valido": true,
+    "contiene": [
+      "[0] = 4",
+      "[0]"
+    ]
+  },
+  {
+    "archivo": "07_propiedad.cps",
+    "categoria": "asignar_propiedad",
+    "valido": true,
+    "contiene": [
+      "class A",
+      ".x = 3"
+    ]
+  },
+  {
+    "archivo": "08_if_else.cps",
+    "categoria": "if_else",
+    "valido": true,
+    "contiene": [
+      "ifFalse ",
+      "goto endif",
+      "else"
+    ]
+  },
+  {
+    "archivo": "09_while.cps",
+    "categoria": "while",
+    "valido": true,
+    "contiene": [
+      "while",
+      "endwhile",
+      "goto while"
+    ]
+  },
+  {
+    "archivo": "10_do_while.cps",
+    "categoria": "do_while",
+    "valido": true,
+    "contiene": [
+      "do",
+      "if ",
+      "enddo"
+    ]
+  },
+  {
+    "archivo": "11_for.cps",
+    "categoria": "for",
+    "valido": true,
+    "contiene": [
+      "for",
+      "forstep",
+      "endfor"
+    ]
+  },
+  {
+    "archivo": "12_foreach.cps",
+    "categoria": "foreach",
+    "valido": true,
+    "contiene": [
+      "length",
+      "foreachstep",
+      "endforeach"
+    ]
+  },
+  {
+    "archivo": "13_switch_entero.cps",
+    "categoria": "switch_entero",
+    "valido": true,
+    "contiene": [
+      "case",
+      "default",
+      "endswitch"
+    ]
+  },
+  {
+    "archivo": "14_try_catch.cps",
+    "categoria": "try_catch",
+    "valido": true,
+    "contiene": [
+      "push_handler",
+      "pop_handler",
+      "catch "
+    ]
+  },
+  {
+    "archivo": "15_funciones.cps",
+    "categoria": "funciones",
+    "valido": true,
+    "contiene": [
+      "func sum@s0",
+      "param 2",
+      "param 3",
+      "return "
+    ]
+  },
+  {
+    "archivo": "16_recursion.cps",
+    "categoria": "recursion",
+    "valido": true,
+    "contiene": [
+      "func fact@s0",
+      "call fact@s0",
+      "return "
+    ]
+  },
+  {
+    "archivo": "17_clases.cps",
+    "categoria": "clases",
+    "valido": true,
+    "contiene": [
+      "class A",
+      "A.$fields",
+      "A.constructor",
+      "this.x",
+      "callmethod "
+    ]
+  },
+  {
+    "archivo": "18_herencia.cps",
+    "categoria": "herencia",
+    "valido": true,
+    "contiene": [
+      "class Dog extends Animal",
+      "func Dog.value",
+      "callmethod "
+    ]
+  },
+  {
+    "archivo": "19_closure.cps",
+    "categoria": "closures",
+    "valido": true,
+    "contiene": [
+      "closure inner",
+      "env s",
+      "func inner"
+    ]
+  },
+  {
+    "archivo": "20_ternario.cps",
+    "categoria": "ternario",
+    "valido": true,
+    "contiene": [
+      "ternary_else",
+      "ternary_end"
+    ]
+  },
+  {
+    "archivo": "21_operacion_reciclaje.cps",
+    "categoria": "reciclaje",
+    "valido": true,
+    "contiene": [
+      " + ",
+      " * ",
+      " - "
+    ]
+  },
+  {
+    "archivo": "22_error_semantico.cps",
+    "categoria": "rechazar_semantico",
+    "valido": false,
+    "contiene": []
+  },
+  {
+    "archivo": "23_error_lexico.cps",
+    "categoria": "rechazar_lexico",
+    "valido": false,
+    "contiene": []
+  },
+  {
+    "archivo": "24_error_sintactico.cps",
+    "categoria": "rechazar_sintactico",
+    "valido": false,
+    "contiene": []
+  },
+  {
+    "archivo": "25_errores_multiples.cps",
+    "categoria": "recuperacion_semantica",
+    "valido": false,
+    "contiene": []
+  },
+  {
+    "archivo": "26_sin_inicializador.cps",
+    "categoria": "variable_declarada",
+    "valido": true,
+    "contiene": [
+      "declare x@s0",
+      "x@s0 = 2"
+    ]
+  },
+  {
+    "archivo": "27_index_y_propiedad.cps",
+    "categoria": "arreglo_en_objeto",
+    "valido": true,
+    "contiene": [
+      "B.$fields",
+      "b@s0.a",
+      "[0]"
+    ]
+  },
+  {
+    "archivo": "28_llamadas_anidadas.cps",
+    "categoria": "llamadas_anidadas",
+    "valido": true,
+    "contiene": [
+      "call g@s0",
+      "call f@s0"
+    ]
+  },
+  {
+    "archivo": "29_float_extension.cps",
+    "categoria": "extension_proyecto1",
+    "valido": true,
+    "contiene": [
+      "1.5",
+      "2.5",
+      " + "
+    ]
+  },
+  {
+    "archivo": "30_error_constante.cps",
+    "categoria": "rechazo_constante",
+    "valido": false,
+    "contiene": []
+  }
+]
