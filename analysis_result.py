@@ -16,6 +16,11 @@ class FullAnalysisResult:
     token_stream: Any | None = None
     symbol_table: SymbolTable | None = None
     classes: dict[str, Any] = field(default_factory=dict)
+    tac: Any | None = None
+
+    @property
+    def tac_text(self) -> str:
+        return self.tac.render() if self.tac is not None else ""
 
     @property
     def lexical_errors(self) -> list[AnalysisError]:

@@ -10,6 +10,7 @@ from error_listener import AnalysisError, SpanishErrorListener
 from generated.CompiscriptLexer import CompiscriptLexer
 from generated.CompiscriptParser import CompiscriptParser
 from semantic_analyzer import SemanticAnalyzer
+from tac_generator import TACGenerator, TACGenerationError
 
 
 class RecoveringErrorStrategy(DefaultErrorStrategy):
@@ -58,6 +59,18 @@ class CompiscriptAnalyzer:
             classes = semantic.classes
 
         errors = self._remove_redundant_errors(lexical + syntactic + semantic_errors)
+        tac = None
+        if not errors:
+            try:
+                tac = TACGenerator(symbol_table, classes).generate(tree)
+            except (TACGenerationError, AttributeError, TypeError, ValueError, IndexError) as exc:
+                errors.append(AnalysisError(
+                    error_type="Semántico", line=1, column=1, symbol="TAC",
+                    description=f"No se pudo traducir esta construcción a TAC: {exc}",
+                    suggestion="Revisa la construcción indicada y su compatibilidad con el lenguaje.",
+                    source_excerpt=source.splitlines()[0] if source.splitlines() else "",
+                    code="TAC_UNSUPPORTED",
+                ))
         errors = sorted(errors, key=lambda err: (err.line, err.column, err.error_type, err.code))[: self.MAX_ERRORS]
         return FullAnalysisResult(
             source=source,
@@ -67,6 +80,7 @@ class CompiscriptAnalyzer:
             token_stream=tokens,
             symbol_table=symbol_table,
             classes=classes,
+            tac=tac,
         )
 
     def analyze_text(self, source: str) -> list[AnalysisError]:
