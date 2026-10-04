@@ -60,6 +60,7 @@ except Exception as exc:
     raise SystemExit(1)
 
 from analyzer import CompiscriptAnalyzer  # noqa: E402
+from compiscript_keywords import COMPISCRIPT_KEYWORDS  # noqa: E402
 from error_listener import AnalysisError  # noqa: E402
 from parse_tree_utils import node_label  # noqa: E402
 
@@ -67,12 +68,7 @@ from parse_tree_utils import node_label  # noqa: E402
 class CodeEditor(ttk.Frame):
     """Editor con números de línea, resaltado básico y navegación a errores."""
 
-    KEYWORDS = {
-        "let", "var", "const", "function", "class", "if", "else", "while", "do",
-        "for", "foreach", "in", "try", "catch", "switch", "case", "default", "break",
-        "continue", "return", "print", "new", "this", "null", "true", "false",
-        "boolean", "integer", "string",
-    }
+    KEYWORDS = COMPISCRIPT_KEYWORDS
 
     def __init__(self, master: tk.Misc) -> None:
         super().__init__(master)
