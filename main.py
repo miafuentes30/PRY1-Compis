@@ -4,13 +4,14 @@ import json
 import re
 import sys
 import tkinter as tk
+import tkinter.font as tkfont
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from bootstrap import ensure_generated
 
 
-APP_TITLE = "Analizador Compiscript"
+APP_TITLE = "Compiscript IDE · Proyecto 2"
 BG = "#F4F7FB"
 SURFACE = "#FFFFFF"
 NAVY = "#14213D"
@@ -261,9 +262,9 @@ class StatCard(tk.Frame):
 class CompiscriptApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
-        self.title(f"{APP_TITLE} · Proyecto 01")
-        self.geometry("1320x820")
-        self.minsize(1050, 680)
+        self.title(APP_TITLE)
+        self.geometry("1500x890")
+        self.minsize(1160, 710)
         self.configure(bg=BG)
 
         self.analyzer = CompiscriptAnalyzer()
@@ -272,12 +273,16 @@ class CompiscriptApp(tk.Tk):
         self.analysis_result = None
         self.item_to_error: dict[str, AnalysisError] = {}
         self.dark_mode = False
+        self.font_delta = 3  # Letra ampliada por defecto; Ctrl +/- permite ajustar.
+        self._base_fonts = {}
         # Conserva los colores originales de widgets tk para poder alternar
         # entre modo claro y oscuro sin reconstruir la interfaz.
         self._light_widget_options: dict[str, dict[str, str]] = {}
 
         self._configure_styles()
         self._build_ui()
+        self._snapshot_fonts()
+        self._apply_font_size()
         self._bind_shortcuts()
         self.protocol("WM_DELETE_WINDOW", self.destroy)
 
@@ -360,6 +365,7 @@ class CompiscriptApp(tk.Tk):
             selectforeground=[("readonly", text)],
         )
         style.configure("TPanedwindow", background=bg)
+        style.configure("TNotebook.Tab", font=("Segoe UI", 11))
 
     def _build_ui(self) -> None:
         self._build_header()
@@ -386,7 +392,7 @@ class CompiscriptApp(tk.Tk):
         ).pack(anchor="w")
         tk.Label(
             title_box,
-            text="IDE con análisis léxico, sintáctico y semántico para archivos .cps",
+            text="Editor, diagnósticos, TAC y tabla de símbolos · archivos .cps",
             bg=NAVY,
             fg="#B8C6DC",
             font=("Segoe UI", 10),
@@ -394,7 +400,7 @@ class CompiscriptApp(tk.Tk):
 
         badge = tk.Label(
             inner,
-            text="ANTLR4 · Visitor semántico · tabla de símbolos",
+            text="ANTLR4 · Análisis completo · TAC",
             bg="#203354",
             fg="#DCE7F8",
             font=("Segoe UI", 9, "bold"),
@@ -405,7 +411,7 @@ class CompiscriptApp(tk.Tk):
 
     def _build_toolbar(self) -> None:
         bar = tk.Frame(self, bg=SURFACE, highlightbackground=BORDER, highlightthickness=1)
-        bar.pack(fill="x", padx=22, pady=(16, 10))
+        bar.pack(fill="x", padx=22, pady=(14, 5))
         buttons = ttk.Frame(bar, style="Toolbar.TFrame", padding=(13, 10))
         buttons.pack(side="left")
         ttk.Button(buttons, text="Abrir archivo .cps", command=self.open_file, style="Secondary.TButton").pack(side="left")
@@ -413,25 +419,29 @@ class CompiscriptApp(tk.Tk):
         ttk.Button(buttons, text="Guardar como", command=self.save_as, style="Secondary.TButton").pack(side="left", padx=(8, 0))
         ttk.Button(buttons, text="Analizar  F5", command=self.analyze, style="Primary.TButton").pack(side="left", padx=(14, 0))
         ttk.Button(buttons, text="Limpiar", command=self.clear_all, style="Secondary.TButton").pack(side="left", padx=(8, 0))
-        ttk.Button(buttons, text="Pruebas semánticas", command=self.open_rubric_tests, style="Secondary.TButton").pack(side="left", padx=(8, 0))
+        ttk.Button(buttons, text="Pruebas P1/P2", command=self.open_rubric_tests, style="Secondary.TButton").pack(side="left", padx=(8, 0))
         self.theme_button = ttk.Button(
             buttons, text="Modo oscuro", command=self.toggle_dark_mode, style="Secondary.TButton"
         )
         self.theme_button.pack(side="left", padx=(8, 0))
+        ttk.Button(buttons, text="A−", command=lambda: self.change_font(-1), style="Secondary.TButton").pack(side="left", padx=(13, 0))
+        ttk.Button(buttons, text="A+", command=lambda: self.change_font(1), style="Secondary.TButton").pack(side="left", padx=(4, 0))
 
-        file_box = tk.Frame(bar, bg=SURFACE)
-        file_box.pack(side="right", fill="y", padx=16, pady=10)
-        tk.Label(file_box, text="ARCHIVO ACTUAL", bg=SURFACE, fg=MUTED, font=("Segoe UI", 8, "bold")).pack(anchor="e")
+        # Archivo actual en fila propia: evita truncamiento al subir el tamaño de letra.
+        file_box = tk.Frame(self, bg=SURFACE, highlightbackground=BORDER, highlightthickness=1)
+        file_box.pack(fill="x", padx=22, pady=(0, 8))
+        tk.Label(file_box, text="ARCHIVO ACTUAL:", bg=SURFACE, fg=MUTED,
+                 font=("Segoe UI", 9, "bold")).pack(side="left", padx=(12, 7), pady=5)
         self.file_label = tk.Label(
             file_box,
             text="Sin archivo seleccionado",
             bg=SURFACE,
             fg=TEXT,
             font=("Segoe UI", 9),
-            width=46,
-            anchor="e",
+            width=70,
+            anchor="w",
         )
-        self.file_label.pack(anchor="e", pady=(2, 0))
+        self.file_label.pack(side="left", pady=5)
 
     def _build_stats(self) -> None:
         stats = tk.Frame(self, bg=BG)
@@ -458,7 +468,7 @@ class CompiscriptApp(tk.Tk):
         tk.Label(editor_header, text="Código fuente", bg=SURFACE, fg=TEXT, font=("Segoe UI", 11, "bold")).pack(side="left")
         tk.Label(
             editor_header,
-            text="Ctrl+O abrir · Ctrl+S guardar · F5 analizar",
+            text="Ctrl+O abrir · Ctrl+S guardar · F5 TAC · Ctrl +/- zoom",
             bg=SURFACE,
             fg=MUTED,
             font=("Segoe UI", 8),
@@ -529,6 +539,32 @@ class CompiscriptApp(tk.Tk):
         self.detail_excerpt.pack(fill="x", padx=12, pady=(7, 10))
         self.detail_excerpt.configure(state="disabled")
 
+        # ---------------- Código intermedio TAC ----------------
+        tac_tab = tk.Frame(self.notebook, bg=SURFACE)
+        self.notebook.add(tac_tab, text="Código intermedio (TAC)")
+        tac_header = tk.Frame(tac_tab, bg=SURFACE)
+        tac_header.pack(fill="x", padx=8, pady=10)
+        tk.Label(tac_header, text="Código de tres direcciones", bg=SURFACE, fg=TEXT,
+                 font=("Segoe UI", 11, "bold")).pack(side="left")
+        ttk.Button(tac_header, text="Exportar .tac", command=self.export_tac,
+                   style="Secondary.TButton").pack(side="right", padx=(8, 0))
+        self.tac_count = tk.Label(tac_header, text="Sin compilar", bg=SURFACE, fg=MUTED,
+                                  font=("Segoe UI", 9))
+        self.tac_count.pack(side="right")
+        tac_body = tk.Frame(tac_tab, bg=SURFACE)
+        tac_body.pack(fill="both", expand=True, padx=8, pady=(0, 9))
+        self.tac_view = tk.Text(tac_body, bg=EDITOR_BG, fg="#D1FAE5", insertbackground="white",
+                                selectbackground="#334155", font=("Cascadia Code", 12),
+                                relief="flat", padx=14, pady=14, wrap="none", state="disabled")
+        tac_scroll_y = ttk.Scrollbar(tac_body, orient="vertical", command=self.tac_view.yview)
+        tac_scroll_x = ttk.Scrollbar(tac_body, orient="horizontal", command=self.tac_view.xview)
+        self.tac_view.configure(yscrollcommand=tac_scroll_y.set, xscrollcommand=tac_scroll_x.set)
+        self.tac_view.grid(row=0, column=0, sticky="nsew")
+        tac_scroll_y.grid(row=0, column=1, sticky="ns")
+        tac_scroll_x.grid(row=1, column=0, sticky="ew")
+        tac_body.rowconfigure(0, weight=1)
+        tac_body.columnconfigure(0, weight=1)
+
         # ---------------- Tabla de símbolos ----------------
         symbols_tab = tk.Frame(self.notebook, bg=SURFACE)
         self.notebook.add(symbols_tab, text="Tabla de símbolos")
@@ -539,10 +575,10 @@ class CompiscriptApp(tk.Tk):
         self.symbol_count.pack(side="right")
         symbol_box = tk.Frame(symbols_tab, bg=SURFACE)
         symbol_box.pack(fill="both", expand=True, padx=8, pady=(0, 8))
-        symbol_cols = ("scope", "depth", "name", "kind", "type", "signature", "mutable", "line")
+        symbol_cols = ("scope", "depth", "name", "kind", "type", "signature", "storage", "offset", "frame", "mutable", "line")
         self.symbol_tree = ttk.Treeview(symbol_box, columns=symbol_cols, show="headings")
-        symbol_headings = {"scope":"Ámbito", "depth":"Niv.", "name":"Nombre", "kind":"Clase", "type":"Tipo", "signature":"Firma / tipo", "mutable":"Mutable", "line":"Línea"}
-        symbol_widths = {"scope":130, "depth":45, "name":120, "kind":90, "type":90, "signature":220, "mutable":65, "line":50}
+        symbol_headings = {"scope":"Ámbito", "depth":"Niv.", "name":"Nombre", "kind":"Clase", "type":"Tipo", "signature":"Firma / tipo", "storage":"Almacén", "offset":"Offset", "frame":"Frame", "mutable":"Mutable", "line":"Línea"}
+        symbol_widths = {"scope":130, "depth":45, "name":120, "kind":90, "type":90, "signature":220, "storage":90, "offset":65, "frame":170, "mutable":65, "line":50}
         for col in symbol_cols:
             self.symbol_tree.heading(col, text=symbol_headings[col])
             self.symbol_tree.column(col, width=symbol_widths[col], anchor="center" if col in {"depth","mutable","line"} else "w")
@@ -614,6 +650,13 @@ class CompiscriptApp(tk.Tk):
         self.bind_all("<Control-Shift-S>", lambda _event: self.save_as())
         self.bind_all("<Control-t>", lambda _event: self.toggle_dark_mode())
         self.bind_all("<F5>", lambda _event: self.analyze())
+        self.bind_all("<Control-plus>", lambda _event: self.change_font(1))
+        self.bind_all("<Control-equal>", lambda _event: self.change_font(1))
+        self.bind_all("<Control-KP_Add>", lambda _event: self.change_font(1))
+        self.bind_all("<Control-minus>", lambda _event: self.change_font(-1))
+        self.bind_all("<Control-KP_Subtract>", lambda _event: self.change_font(-1))
+        self.editor.text.bind("<Control-MouseWheel>", self._mouse_font_zoom)
+        self.editor.text.bind("<<Modified>>", lambda _event: self.after_idle(self._clear_stale_tac), add="+")
 
     @staticmethod
     def _dark_color_for(light_color: str) -> str:
@@ -693,6 +736,7 @@ class CompiscriptApp(tk.Tk):
         self._configure_styles()
         self._apply_widget_theme(self, self.dark_mode)
         self._apply_result_tag_theme()
+        self._apply_font_size()
         self.theme_button.configure(text="Modo claro" if self.dark_mode else "Modo oscuro")
         self.status.configure(
             text="Modo oscuro activado." if self.dark_mode else "Modo claro activado."
@@ -763,6 +807,10 @@ class CompiscriptApp(tk.Tk):
 
     def analyze(self) -> None:
         source = self.editor.get_content()
+        # A failure in the next compilation must never leave a previous TAC exportable.
+        self.analysis_result = None
+        self.errors = []
+        self._clear_tac_view()
         self.status.configure(text="Analizando léxico, sintaxis y semántica...")
         self.update_idletasks()
         try:
@@ -787,10 +835,11 @@ class CompiscriptApp(tk.Tk):
         self._populate_results()
         self._populate_symbol_table()
         self._populate_parse_tree()
+        self._populate_tac()
 
         if not self.errors:
             self.total_card.set_value("Correcto")
-            self.status.configure(text="Análisis completado: código léxica, sintáctica y semánticamente válido.")
+            self.status.configure(text="Compilación completada: TAC generado, sin errores léxicos, sintácticos ni semánticos.")
             self._show_success_detail()
         else:
             self.total_card.set_value(f"{len(self.errors)} error(es)")
@@ -830,6 +879,93 @@ class CompiscriptApp(tk.Tk):
             self.item_to_error[item] = error
         self.visible_count.configure(text=f"{len(visible)} resultado(s)")
 
+    def _clear_tac_view(self) -> None:
+        if not hasattr(self, "tac_view"):
+            return
+        self.tac_view.configure(state="normal")
+        self.tac_view.delete("1.0", "end")
+        self.tac_view.configure(state="disabled")
+        self.tac_count.configure(text="Sin TAC")
+
+    def _clear_stale_tac(self) -> None:
+        if self.analysis_result is not None and self.editor.get_content() != self.analysis_result.source:
+            self._reset_analysis()
+            self.status.configure(text="Código modificado. Vuelve a analizar (F5) para generar TAC actualizado.")
+
+    def _populate_tac(self) -> None:
+        self._clear_tac_view()
+        if self.analysis_result is None or self.analysis_result.tac is None:
+            self.tac_count.configure(text="No se genera TAC si hay errores")
+            return
+        tac = self.analysis_result.tac
+        self.tac_view.configure(state="normal")
+        self.tac_view.insert("1.0", tac.render(numbered=True))
+        self.tac_view.configure(state="disabled")
+        self.tac_count.configure(text=f"{len(tac.instructions)} instrucciones · "
+                                       f"{tac.allocated_temporaries} temp. · "
+                                       f"{tac.reused_temporaries} reutilizaciones")
+        self.notebook.select(self.tac_view.master.master)
+
+    def export_tac(self) -> None:
+        if (self.analysis_result is None or self.analysis_result.tac is None
+                or self.editor.get_content() != self.analysis_result.source):
+            messagebox.showwarning("Sin código intermedio actualizado",
+                                   "Analiza el código actual sin errores antes de exportar.", parent=self)
+            return
+        stem = self.current_file.stem if self.current_file else "codigo_intermedio"
+        path = filedialog.asksaveasfilename(parent=self, title="Exportar código intermedio",
+                                            initialfile=stem + ".tac", defaultextension=".tac",
+                                            filetypes=[("Código intermedio", "*.tac"), ("Texto", "*.txt")])
+        if path:
+            try:
+                Path(path).write_text(self.analysis_result.tac.render(numbered=True) + "\n", encoding="utf-8")
+                self.status.configure(text=f"Código intermedio exportado: {path}")
+            except OSError as exc:
+                messagebox.showerror("No se pudo exportar", str(exc), parent=self)
+
+    def _snapshot_fonts(self) -> None:
+        """Conserva tamaños iniciales de widgets Tk; zoom no altera jerarquías."""
+        def walk(parent):
+            for child in parent.winfo_children():
+                if isinstance(child, (tk.Text, tk.Label, tk.Entry, tk.Button, tk.Message)) and str(child) not in self._base_fonts:
+                    try:
+                        font = tkfont.Font(root=self, font=child.cget("font"))
+                        self._base_fonts[str(child)] = (child, font.actual())
+                    except tk.TclError:
+                        pass
+                walk(child)
+        walk(self)
+
+    def _apply_font_size(self) -> None:
+        for child, data in list(self._base_fonts.values()):
+            try:
+                spec = dict(data)
+                base = abs(int(spec["size"]))
+                # Grandes títulos conservan su tamaño y caben en el encabezado.
+                spec["size"] = base if base >= 18 else max(9, base + self.font_delta)
+                child.configure(font=(spec["family"], spec["size"], spec["weight"], spec["slant"]))
+            except (tk.TclError, KeyError):
+                continue
+        style = ttk.Style(self)
+        size = 9 + self.font_delta
+        style.configure("Treeview", font=("Segoe UI", size), rowheight=22 + size)
+        style.configure("Treeview.Heading", font=("Segoe UI", size, "bold"))
+        style.configure("TNotebook.Tab", font=("Segoe UI", size))
+        style.configure("Primary.TButton", font=("Segoe UI", size, "bold"))
+        style.configure("Secondary.TButton", font=("Segoe UI", size))
+        style.configure("TCombobox", font=("Segoe UI", size))
+        self.editor.line_numbers.configure(width=56 + self.font_delta * 2)
+        self.editor._redraw_line_numbers()
+
+    def change_font(self, direction: int) -> None:
+        self.font_delta = min(9, max(0, self.font_delta + direction))
+        self._apply_font_size()
+        self.status.configure(text=f"Tamaño de texto ajustado: {self.font_delta + 11} pt en el editor. Ctrl +/- para cambiar.")
+
+    def _mouse_font_zoom(self, event) -> str:
+        self.change_font(1 if event.delta > 0 else -1)
+        return "break"
+
     def _populate_symbol_table(self) -> None:
         for item in self.symbol_tree.get_children():
             self.symbol_tree.delete(item)
@@ -840,7 +976,7 @@ class CompiscriptApp(tk.Tk):
         for row in rows:
             self.symbol_tree.insert(
                 "", "end",
-                values=(row["scope"], row["depth"], row["name"], row["kind"], row["type"], row["signature"], "Sí" if row["mutable"] else "No", row["line"]),
+                values=(row["scope"], row["depth"], row["name"], row["kind"], row["type"], row["signature"], row["storage_class"], row["offset"] if row["offset"] is not None else "—", row["frame_name"], "Sí" if row["mutable"] else "No", row["line"]),
             )
         self.symbol_count.configure(text=f"{len(rows)} símbolo(s)")
 
@@ -925,6 +1061,7 @@ class CompiscriptApp(tk.Tk):
         if hasattr(self, "symbol_tree"):
             for item in self.symbol_tree.get_children(): self.symbol_tree.delete(item)
             self.symbol_count.configure(text="0 símbolos")
+        self._clear_tac_view()
         if hasattr(self, "parse_tree"):
             for item in self.parse_tree.get_children(): self.parse_tree.delete(item)
             self.tree_count.configure(text="0 nodos")
@@ -937,16 +1074,22 @@ class CompiscriptApp(tk.Tk):
 
     def open_rubric_tests(self) -> None:
         """Muestra la batería de pruebas semánticas entregada con el proyecto."""
-        tests_dir = Path(__file__).resolve().parent / "pruebas_semanticas"
+        root = Path(__file__).resolve().parent
+        tests_dir = root / "pruebas_semanticas"
         manifest_path = tests_dir / "manifest.json"
         try:
             entries = json.loads(manifest_path.read_text(encoding="utf-8"))
+            tac_entries = json.loads((root / "pruebas_tac" / "manifest.json").read_text(encoding="utf-8"))
+            for item in tac_entries:
+                entries.append({"archivo": item["archivo"], "regla": item["categoria"],
+                                "esperado": "VÁLIDO" if item["valido"] else "ERROR",
+                                "descripcion": "TAC Proyecto 2", "tac": True})
         except (OSError, json.JSONDecodeError) as exc:
             messagebox.showerror("No se pudieron cargar las pruebas", str(exc), parent=self)
             return
 
         window = tk.Toplevel(self)
-        window.title("Batería de pruebas semánticas · Proyecto 01")
+        window.title("Batería de pruebas Compiscript · Proyectos 1 y 2")
         window.geometry("1040x560")
         window.minsize(820, 420)
         window.configure(bg=BG)
@@ -954,7 +1097,7 @@ class CompiscriptApp(tk.Tk):
 
         header = tk.Frame(window, bg=NAVY)
         header.pack(fill="x")
-        tk.Label(header, text="Casos exitosos y fallidos de reglas semánticas", bg=NAVY, fg="white", font=("Segoe UI", 14, "bold"), padx=18, pady=14).pack(anchor="w")
+        tk.Label(header, text="Casos exitosos y fallidos · semántica y TAC", bg=NAVY, fg="white", font=("Segoe UI", 14, "bold"), padx=18, pady=14).pack(anchor="w")
 
         body = tk.Frame(window, bg=BG)
         body.pack(fill="both", expand=True, padx=16, pady=16)
@@ -983,7 +1126,8 @@ class CompiscriptApp(tk.Tk):
             values = tree.item(selection[0], "values")
             if not values:
                 return
-            path = tests_dir / values[0]
+            entry = next((e for e in entries if e["archivo"] == values[0]), None)
+            path = (root / "pruebas_tac" if entry and entry.get("tac") else tests_dir) / values[0]
             try:
                 content = self._read_file(path)
             except OSError as exc:
@@ -993,7 +1137,7 @@ class CompiscriptApp(tk.Tk):
             self.file_label.configure(text=path.name)
             self.editor.set_content(content)
             self._reset_analysis()
-            self.status.configure(text=f"Prueba semántica cargada: {path.name}")
+            self.status.configure(text=f"Prueba cargada: {path.name}")
             window.destroy()
 
         ttk.Button(footer, text="Cargar seleccionada", command=load_selected, style="Primary.TButton").pack(side="right")
@@ -1002,6 +1146,8 @@ class CompiscriptApp(tk.Tk):
         if first:
             tree.selection_set(first)
             tree.focus(first)
+        self._snapshot_fonts()
+        self._apply_font_size()
         if self.dark_mode:
             self._apply_widget_theme(window, True)
 
