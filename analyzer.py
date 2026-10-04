@@ -9,6 +9,7 @@ from analysis_result import FullAnalysisResult
 from error_listener import AnalysisError, SpanishErrorListener
 from generated.CompiscriptLexer import CompiscriptLexer
 from generated.CompiscriptParser import CompiscriptParser
+from reserved_word_diagnostics import find_reserved_word_typos, suppress_consequential_syntax_errors
 from semantic_analyzer import SemanticAnalyzer
 from tac_generator import TACGenerator, TACGenerationError
 
@@ -44,6 +45,8 @@ class CompiscriptAnalyzer:
         tree = parser.program()
         lexical = lexical_listener.errors
         syntactic = syntactic_listener.errors
+        reserved_typos = find_reserved_word_typos(source, len(syntactic))
+        syntactic = suppress_consequential_syntax_errors(syntactic, reserved_typos, tokens) + reserved_typos
 
         semantic_errors: list[AnalysisError] = []
         symbol_table = None

@@ -34,7 +34,7 @@ variableDeclaration
   ;
 
 constantDeclaration
-  : 'const' Identifier typeAnnotation? ('=' expression)? ';'
+  : 'const' Identifier typeAnnotation? '=' expression ';'
   ;
 
 typeAnnotation: ':' typeSpec;
@@ -154,19 +154,17 @@ arrayLiteral: '[' (expression (',' expression)*)? ']';
 // ------------------
 
 typeSpec: baseType ('[' ']')*;
-baseType: 'boolean' | 'integer' | 'float' | 'string' | Identifier;
+baseType: 'boolean' | 'integer' | 'string' | Identifier;
 
 // ------------------
 // Lexer Rules
 // ------------------
 
 Literal
-  : FloatLiteral
-  | IntegerLiteral
+  : IntegerLiteral
   | StringLiteral
   ;
 
-FloatLiteral: [0-9]+ '.' [0-9]+;
 IntegerLiteral: [0-9]+;
 StringLiteral: '"' (~["\r\n])* '"';
 

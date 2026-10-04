@@ -18,6 +18,7 @@ class AnalysisError:
     suggestion: str
     source_excerpt: str
     code: str = ""
+    token_index: int | None = None
 
 
 class SpanishErrorListener(ErrorListener):
@@ -31,7 +32,6 @@ class SpanishErrorListener(ErrorListener):
         "Literal": "un número entero o una cadena de texto",
         "IntegerLiteral": "un número entero",
         "StringLiteral": "una cadena de texto entre comillas dobles",
-        "FloatLiteral": "un número decimal",
         "'let'": "la palabra reservada «let»",
         "'var'": "la palabra reservada «var»",
         "'const'": "la palabra reservada «const»",
@@ -60,7 +60,6 @@ class SpanishErrorListener(ErrorListener):
         "'false'": "el valor booleano «false»",
         "'boolean'": "el tipo «boolean»",
         "'integer'": "el tipo «integer»",
-        "'float'": "el tipo «float»",
         "'string'": "el tipo «string»",
         "';'": "un punto y coma «;»",
         "':'": "dos puntos «:»",
@@ -143,6 +142,7 @@ class SpanishErrorListener(ErrorListener):
             )
 
         excerpt = self._source_excerpt(safe_line, internal_column)
+        token_index = getattr(offendingSymbol, "tokenIndex", None)
         key = (self.error_type, safe_line, display_column, symbol, description)
         if key in self._seen:
             return
@@ -156,6 +156,7 @@ class SpanishErrorListener(ErrorListener):
                 description=description,
                 suggestion=suggestion,
                 source_excerpt=excerpt,
+                token_index=token_index,
             )
         )
 

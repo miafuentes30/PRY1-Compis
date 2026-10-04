@@ -3,7 +3,7 @@
     "archivo": "01_tipos_aritmeticos_ok.cps",
     "regla": "Tipos: aritmética",
     "esperado": "VÁLIDO",
-    "descripcion": "integer/float son aceptados en operaciones aritméticas.",
+    "descripcion": "integer es aceptado en operaciones aritméticas.",
     "codigo_objetivo": "",
     "codigos_esperados": []
   },
@@ -92,12 +92,10 @@
   {
     "archivo": "11_constante_sin_inicializar_error.cps",
     "regla": "Constantes",
-    "esperado": "ERROR",
-    "descripcion": "La regla semántica exige inicializar const en la declaración.",
-    "codigo_objetivo": "SEM_CONST_INIT",
-    "codigos_esperados": [
-      "SEM_CONST_INIT"
-    ]
+    "esperado": "ERROR SINTÁCTICO",
+    "descripcion": "La gramática oficial exige inicializar const en la declaración.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
   },
   {
     "archivo": "12_arreglos_ok.cps",

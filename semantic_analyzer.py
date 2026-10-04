@@ -16,8 +16,8 @@ UNKNOWN = "unknown"
 VOID = "void"
 NULL = "null"
 FUNCTION = "function"
-NUMERIC_TYPES = {"integer", "float"}
-PRIMITIVE_TYPES = {"integer", "float", "string", "boolean"}
+NUMERIC_TYPES = {"integer"}
+PRIMITIVE_TYPES = {"integer", "string", "boolean"}
 
 
 @dataclass
@@ -127,7 +127,7 @@ class SemanticAnalyzer(CompiscriptVisitor):
         return f"{text}\n{' ' * caret}^"
 
     @staticmethod
-    def _type_text(ctx: CompiscriptParser.TypeSpecContext | None) -> str:
+    def _type_text(ctx) -> str:
         if ctx is None:
             return UNKNOWN
         return ctx.getText()
@@ -169,11 +169,9 @@ class SemanticAnalyzer(CompiscriptVisitor):
         if self._is_array(expected) and self._is_array(actual):
             return self._compatible(self._array_element(expected), self._array_element(actual))
 
-        if expected == "float" and actual == "integer":
-            return True
         if actual == NULL:
             # null es aceptable para referencias y arreglos, no para primitivos numéricos/booleanos.
-            return expected not in {"integer", "float", "boolean"}
+            return expected not in {"integer", "boolean"}
         return False
 
     def _common_type(self, left: str, right: str) -> str:
@@ -191,10 +189,10 @@ class SemanticAnalyzer(CompiscriptVisitor):
             return f"{common_element}[]" if common_element != UNKNOWN else UNKNOWN
 
         if {left, right} <= NUMERIC_TYPES:
-            return "float"
-        if left == NULL and right not in {"integer", "float", "boolean"}:
+            return "integer"
+        if left == NULL and right not in {"integer", "boolean"}:
             return right
-        if right == NULL and left not in {"integer", "float", "boolean"}:
+        if right == NULL and left not in {"integer", "boolean"}:
             return left
         return UNKNOWN
 
@@ -205,7 +203,7 @@ class SemanticAnalyzer(CompiscriptVisitor):
                 "SEM_UNKNOWN_TYPE",
                 type_name,
                 f"El tipo {type_name} no está declarado en Compiscript ni corresponde a una clase conocida.",
-                "Usa integer, float, string, boolean, un arreglo válido o una clase declarada.",
+                "Usa integer, string, boolean, un arreglo válido o una clase declarada.",
             )
 
     def _check_assignment(self, ctx, target: ExprInfo | Symbol, actual_type: str) -> None:
@@ -987,11 +985,11 @@ class SemanticAnalyzer(CompiscriptVisitor):
     def visitSwitchStatement(self, ctx: CompiscriptParser.SwitchStatementContext):
         switch_type = (self._safe_visit(ctx.expression()) or ExprInfo(UNKNOWN)).type_name
         # La definición pública permite switch sobre escalares (ejemplo: integer).
-        if switch_type not in {UNKNOWN, "boolean", "integer", "float", "string"}:
+        if switch_type not in {UNKNOWN, "boolean", "integer", "string"}:
             self._error(
                 ctx.expression(), "SEM_CONDITION_TYPE", switch_type,
                 f"switch requiere un valor escalar comparable, no {switch_type}.",
-                "Usa una expresión integer, float, string o boolean como discriminante.",
+                "Usa una expresión integer, string o boolean como discriminante.",
             )
         ctx._tac_scope_id = self.symbols.enter_scope("switch", "switch")
         self.switch_depth += 1
@@ -1147,7 +1145,7 @@ class SemanticAnalyzer(CompiscriptVisitor):
                     "SEM_COMPARISON_TYPE",
                     "comparación",
                     f"La comparación relacional usa tipos no comparables: {left} y {right}.",
-                    "Usa integer/float en ambos lados o dos valores string para una comparación relacional.",
+                    "Usa integer en ambos lados o dos valores string para una comparación relacional.",
                 )
         return ExprInfo("boolean")
 
@@ -1172,7 +1170,7 @@ class SemanticAnalyzer(CompiscriptVisitor):
                     "SEM_ARITHMETIC_TYPE",
                     op,
                     f"El operador {op} requiere operandos numéricos; solo + permite string + string. Se obtuvo {result} y {right}.",
-                    "Usa integer/float en operaciones aritméticas o dos string para concatenación con +.",
+                    "Usa integer en operaciones aritméticas o dos string para concatenación con +.",
                 )
                 result = UNKNOWN
         return ExprInfo(result)
@@ -1187,7 +1185,7 @@ class SemanticAnalyzer(CompiscriptVisitor):
         for index, right in enumerate(types[1:]):
             op = ops[index] if index < len(ops) else "*"
             if self._is_numeric(result) and self._is_numeric(right):
-                result = "float" if op == "/" or "float" in {result, right} else "integer"
+                result = "integer"
             elif UNKNOWN in {result, right}:
                 result = UNKNOWN
             else:
@@ -1195,7 +1193,7 @@ class SemanticAnalyzer(CompiscriptVisitor):
                     ctx,
                     "SEM_ARITHMETIC_TYPE",
                     op,
-                    f"El operador {op} requiere integer o float, pero se obtuvo {result} y {right}.",
+                    f"El operador {op} requiere integer, pero se obtuvo {result} y {right}.",
                     "Usa operandos numéricos en *, / y %.",
                 )
                 result = UNKNOWN
@@ -1222,7 +1220,7 @@ class SemanticAnalyzer(CompiscriptVisitor):
                     ctx,
                     "SEM_ARITHMETIC_TYPE",
                     "-",
-                    f"El operador unario - requiere integer o float, pero se obtuvo {operand.type_name}.",
+                    f"El operador unario - requiere integer, pero se obtuvo {operand.type_name}.",
                     "Aplica - a una expresión numérica.",
                 )
                 return ExprInfo(UNKNOWN)
@@ -1248,8 +1246,6 @@ class SemanticAnalyzer(CompiscriptVisitor):
             return ExprInfo(NULL)
         if text.startswith('"'):
             return ExprInfo("string")
-        if "." in text and text.replace(".", "", 1).isdigit():
-            return ExprInfo("float")
         if text.isdigit():
             return ExprInfo("integer")
         return ExprInfo(UNKNOWN)

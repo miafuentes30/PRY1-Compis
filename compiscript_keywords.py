@@ -1,0 +1,35 @@
+from __future__ import annotations
+
+COMPISCRIPT_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "let",
+        "var",
+        "const",
+        "function",
+        "class",
+        "if",
+        "else",
+        "while",
+        "do",
+        "for",
+        "foreach",
+        "in",
+        "try",
+        "catch",
+        "switch",
+        "case",
+        "default",
+        "break",
+        "continue",
+        "return",
+        "print",
+        "new",
+        "this",
+        "null",
+        "true",
+        "false",
+        "boolean",
+        "integer",
+        "string",
+    }
+)

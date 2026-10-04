@@ -1,3 +1,3 @@
 let a: integer = 5;
-let b: float = 2.5;
-let c: float = a + b * 2;
+let b: integer = 2;
+let c: integer = a + b * 2;
