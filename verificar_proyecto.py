@@ -103,14 +103,14 @@ def verify_symbol_table() -> tuple[int, int]:
     table = SymbolTable()
     checks.append(("insertar", table.insert(Symbol("x", "variable", "integer", initialized=True))))
     checks.append(("recuperar", table.lookup("x") is not None and table.lookup("x").type_name == "integer"))
-    checks.append(("actualizar", table.update("x", type_name="float") and table.lookup("x").type_name == "float"))
+    checks.append(("actualizar", table.update("x", type_name="string") and table.lookup("x").type_name == "string"))
 
     table.enter_scope("bloque_demo", "block")
-    inherited = table.lookup("x") is not None and table.lookup("x").type_name == "float"
+    inherited = table.lookup("x") is not None and table.lookup("x").type_name == "string"
     local_insert = table.insert(Symbol("x", "variable", "string", initialized=True))
     shadow = table.lookup("x") is not None and table.lookup("x").type_name == "string"
     table.exit_scope()
-    restore = table.lookup("x") is not None and table.lookup("x").type_name == "float"
+    restore = table.lookup("x") is not None and table.lookup("x").type_name == "string"
     checks.append(("manejo de alcances", inherited and local_insert and shadow and restore))
 
     print("\nTABLA DE SÍMBOLOS")

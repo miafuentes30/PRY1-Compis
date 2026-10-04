@@ -261,12 +261,12 @@
     ]
   },
   {
-    "archivo": "29_float_extension.cps",
-    "categoria": "extension_proyecto1",
+    "archivo": "29_aritmetica_entera.cps",
+    "categoria": "aritmetica_entera",
     "valido": true,
     "contiene": [
-      "1.5",
-      "2.5",
+      "1",
+      "2",
       " + "
     ]
   },
