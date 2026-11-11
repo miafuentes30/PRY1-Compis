@@ -524,5 +524,37 @@
     "descripcion": "Los arreglos vacíos pueden tomar el tipo contextual dentro de arreglos multidimensionales.",
     "codigo_objetivo": "",
     "codigos_esperados": []
+  },
+  {
+    "archivo": "58_concatenacion_mixta_ok.cps",
+    "regla": "P3: concatenación con conversión",
+    "esperado": "VÁLIDO",
+    "descripcion": "string + integer y string + boolean concatenan, como en el programa de ejemplo oficial.",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "59_subtipo_ok.cps",
+    "regla": "P3: subtipos en herencia",
+    "esperado": "VÁLIDO",
+    "descripcion": "Una instancia derivada se acepta donde se espera la clase base (variables, parámetros y arreglos).",
+    "codigo_objetivo": "",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "60_subtipo_inverso_error.cps",
+    "regla": "P3: subtipos en herencia",
+    "esperado": "ERROR",
+    "descripcion": "La clase base no puede asignarse a una variable de la clase derivada.",
+    "codigo_objetivo": "SEM_ASSIGN_TYPE",
+    "codigos_esperados": []
+  },
+  {
+    "archivo": "61_concatenacion_invalida_error.cps",
+    "regla": "P3: concatenación con conversión",
+    "esperado": "ERROR",
+    "descripcion": "Solo + concatena; - y * con cadenas siguen siendo errores.",
+    "codigo_objetivo": "SEM_ARITHMETIC_TYPE",
+    "codigos_esperados": []
   }
 ]

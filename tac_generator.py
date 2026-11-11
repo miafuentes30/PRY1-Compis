@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from contextlib import contextmanager
 
 from generated.CompiscriptVisitor import CompiscriptVisitor
-from tac_ir import TACProgram, Instruction, TemporaryPool
+from tac_ir import TACProgram, Instruction, TemporaryPool, FunctionInfo
 
 
 @dataclass
@@ -12,6 +12,9 @@ class Value:
     place: str
     temporary: bool = False
     receiver: str | None = None
+    # Tipo estático del valor y, en accesos diferidos a propiedad, el de su receptor.
+    type: str = 'unknown'
+    owner_type: str = 'unknown'
 
 
 class TACGenerationError(Exception):
@@ -35,9 +38,42 @@ class TACGenerator(CompiscriptVisitor):
         self.class_owner = None
         self.field_initializer_jobs = []
 
-    def emit(self, op, *args, ctx=None):
+    COMPARISONS = {'==', '!=', '<', '<=', '>', '>='}
+
+    def visit(self, tree):
+        """Propaga a cada Value el tipo que el análisis semántico anotó en el nodo."""
+        result = super().visit(tree)
+        if isinstance(result, Value) and result.receiver is None:
+            annotated = getattr(tree, '_expr_type', None)
+            if annotated and annotated != 'unknown':
+                result.type = annotated
+        return result
+
+    def emit(self, op, *args, ctx=None, types=(), note=''):
         line = getattr(getattr(ctx, 'start', None), 'line', 0) if ctx is not None else 0
-        self.program.instructions.append(Instruction(op, tuple(str(a) for a in args), line))
+        self.program.instructions.append(
+            Instruction(op, tuple(str(a) for a in args), line, tuple(types), note))
+
+    @classmethod
+    def _binary_type(cls, op, left, right):
+        if op in cls.COMPARISONS:
+            return 'boolean'
+        if op == '+':
+            if 'string' in (left, right):
+                return 'string'
+            if 'unknown' in (left, right):
+                return 'unknown'
+        return 'integer'
+
+    def _load_field(self, value, ctx=None):
+        """Materializa un acceso diferido ``obj.campo`` en un temporal tipado."""
+        out = self.tmp()
+        base, prop = value.place.rsplit('.', 1)
+        self.emit('GET_FIELD', out.place, base, prop, ctx=ctx, types=(value.owner_type,))
+        if value.temporary:
+            self.pool.release(base)
+        out.type = value.type
+        return out
 
     def label(self, prefix='L'):
         number = self.label_number
@@ -64,6 +100,7 @@ class TACGenerator(CompiscriptVisitor):
         if '@s' not in value.place and value.place != 'this':
             return value
         result = self.tmp()
+        result.type = value.type
         self.emit('MOVE', result.place, value.place)
         return result
 
@@ -107,8 +144,16 @@ class TACGenerator(CompiscriptVisitor):
             raise TACGenerationError(f'Símbolo no disponible para TAC: {identifier} (ámbito {self.scope})')
         return symbol.tac_name or f'{identifier}@s{symbol.scope_id}'
 
+    def _member_symbol(self, identifier):
+        """Miembro de la clase actual usado sin ``this.`` (p. ej. ``cuenta = cuenta + 1``)."""
+        symbol = self.symbols.lookup(identifier, self.scope)
+        if symbol is not None and symbol.kind in {'attribute', 'method'} and symbol.owner_class:
+            return symbol
+        return None
+
     def generate(self, tree):
         self.symbols.plan_storage(self.classes)
+        self.program.functions['main'] = FunctionInfo('main', 'main', 0)
         self.emit('LABEL', 'main')
         self.visit(tree)
         self.emit('RETURN')
@@ -151,20 +196,27 @@ class TACGenerator(CompiscriptVisitor):
             self.free(rhs)
 
     def visitAssignment(self, ctx):
-        if ctx.Identifier() and ctx.expression() and ctx.getChild(0).getText() == ctx.Identifier().getText():
+        if len(ctx.expression()) == 1:
+            identifier = ctx.Identifier().getText()
+            member = self._member_symbol(identifier)
             value = self.visit(ctx.expression(0))
-            self.emit('MOVE', self.name(ctx.Identifier().getText()), value.place, ctx=ctx)
+            if member is not None:
+                # Atributo de la clase actual asignado sin ``this.``.
+                self.emit('SET_FIELD', 'this', identifier, value.place, ctx=ctx, types=(member.owner_class,))
+            else:
+                self.emit('MOVE', self.name(identifier), value.place, ctx=ctx)
             self.free(value)
         else:
             # expr.prop = rhs: evaluation of receiver precedes RHS, including side effects.
             receiver = self.snapshot(self.visit(ctx.expression(0)))
             rhs = self.visit(ctx.expression(1))
-            self.emit('SET_FIELD', receiver.place, ctx.Identifier().getText(), rhs.place, ctx=ctx)
+            self.emit('SET_FIELD', receiver.place, ctx.Identifier().getText(), rhs.place, ctx=ctx,
+                      types=(receiver.type,))
             self.free(receiver, rhs)
 
     def visitPrintStatement(self, ctx):
         v = self.visit(ctx.expression())
-        self.emit('PRINT', v.place, ctx=ctx)
+        self.emit('PRINT', v.place, ctx=ctx, types=(v.type,))
         self.free(v)
 
     def visitExpressionStatement(self, ctx):
@@ -227,11 +279,13 @@ class TACGenerator(CompiscriptVisitor):
         with self.in_scope(ctx):
             item = self.name(ctx.Identifier().getText())
             index = self.tmp(); length = self.tmp()
+            index.type = length.type = 'integer'
             self.emit('MOVE', index.place, '0', ctx=ctx)
             self.emit('ARRAY_LEN', length.place, array.place, ctx=ctx)
             begin, step, end = self.label('foreach'), self.label('foreachstep'), self.label('endforeach')
             self.emit('LABEL', begin)
-            cond = self.tmp(); self.emit('BIN', cond.place, index.place, '<', length.place)
+            cond = self.tmp(); self.emit('BIN', cond.place, index.place, '<', length.place,
+                                         types=('integer', 'integer', 'boolean'))
             self.emit('IF_FALSE', cond.place, end); self.free(cond)
             self.emit('ARRAY_GET', item, array.place, index.place)
             self.break_targets.append((end, len(self.active_try))); self.continue_targets.append((step, len(self.active_try)))
@@ -252,7 +306,7 @@ class TACGenerator(CompiscriptVisitor):
             default = self.label('default') if ctx.defaultCase() else end
             for case, target in zip(cases, labels):
                 x = self.visit(case.expression()); pred = self.tmp()
-                self.emit('BIN', pred.place, v.place, '==', x.place)
+                self.emit('BIN', pred.place, v.place, '==', x.place, types=(v.type, x.type, 'boolean'))
                 self.emit('IF_TRUE', pred.place, target)
                 self.free(x, pred)
             self.emit('GOTO', default); self.free(v)
@@ -301,7 +355,7 @@ class TACGenerator(CompiscriptVisitor):
         self.emit('LABEL', handler)
         previous = self.scope
         self.scope = getattr(ctx, '_tac_catch_scope_id', self.scope)
-        self.emit('CATCH', self.name(ctx.Identifier().getText()))
+        self.emit('CATCH', self.name(ctx.Identifier().getText()), handler, types=('string',))
         self.visit(ctx.block(1))
         self.scope = previous
         self.emit('LABEL', end)
@@ -325,7 +379,12 @@ class TACGenerator(CompiscriptVisitor):
         # Dentro de métodos, funciones locales son closures normales, no métodos.
         self.class_owner = None
         params = ctx.parameters().parameter() if ctx.parameters() else []
-        self.emit('FUNC', label, ', '.join(self.name(p.Identifier().getText()) for p in params), ctx=ctx)
+        param_names = tuple(self.name(p.Identifier().getText()) for p in params)
+        symbol = self.symbols.lookup(ctx.Identifier().getText(), parent_scope)
+        self.program.functions[label] = FunctionInfo(
+            label, 'method' if owner else 'function', self.scope, parent_scope, owner, param_names,
+            getattr(symbol, 'return_type', 'void') or 'void', getattr(ctx.start, 'line', 0))
+        self.emit('FUNC', label, ', '.join(param_names), ctx=ctx)
         self.visit(ctx.block())
         self.emit('RETURN')
         self.emit('ENDFUNC', label)
@@ -366,10 +425,12 @@ class TACGenerator(CompiscriptVisitor):
         self.frame = f'{owner}.$fields'
         self.class_owner = owner
         self.break_targets, self.continue_targets, self.active_try = [], [], []
+        self.program.functions[f'{owner}.$fields'] = FunctionInfo(
+            f'{owner}.$fields', 'fields', scope_id, scope_id, owner)
         self.emit('FUNC', f'{owner}.$fields', 'this')
         for name, expr in fields:
             value = self.visit(expr)
-            self.emit('SET_FIELD', 'this', name, value.place, ctx=expr)
+            self.emit('SET_FIELD', 'this', name, value.place, ctx=expr, types=(owner,))
             self.free(value)
         self.emit('RETURN')
         self.emit('ENDFUNC', f'{owner}.$fields')
@@ -384,7 +445,11 @@ class TACGenerator(CompiscriptVisitor):
 
     def _lvalue(self, ctx):
         if len(ctx.suffixOp()) == 0 and ctx.primaryAtom().Identifier():
-            return ('var', self.name(ctx.primaryAtom().Identifier().getText()), None)
+            identifier = ctx.primaryAtom().Identifier().getText()
+            member = self._member_symbol(identifier)
+            if member is not None:
+                return ('field', Value('this', type=member.owner_class), identifier)
+            return ('var', self.name(identifier), None)
         suffixes = ctx.suffixOp()
         last = suffixes[-1]
         if getattr(last, "expression", lambda: None)() is not None:
@@ -402,17 +467,13 @@ class TACGenerator(CompiscriptVisitor):
         for suffix in ctx.suffixOp()[:n]:
             base = self._apply_suffix(base, suffix)
         if base.receiver is not None:
-            out = self.tmp()
-            receiver, field = base.place.rsplit('.', 1)
-            self.emit('GET_FIELD', out.place, receiver, field)
-            if base.temporary: self.pool.release(receiver)
-            base = out
+            base = self._load_field(base)
         return base
 
     def _store(self, ref, rhs):
         kind, base, key = ref
         if kind == 'var': self.emit('MOVE', base, rhs.place)
-        elif kind == 'field': self.emit('SET_FIELD', base.place, key, rhs.place); self.free(base)
+        elif kind == 'field': self.emit('SET_FIELD', base.place, key, rhs.place, types=(base.type,)); self.free(base)
         else: self.emit('ARRAY_SET', base.place, key.place, rhs.place); self.free(base, key)
 
     def visitAssignExpr(self, ctx):
@@ -424,7 +485,7 @@ class TACGenerator(CompiscriptVisitor):
     def visitPropertyAssignExpr(self, ctx):
         base = self.snapshot(self.visit(ctx.lhs))
         rhs = self.visit(ctx.assignmentExpr())
-        self.emit('SET_FIELD', base.place, ctx.Identifier().getText(), rhs.place)
+        self.emit('SET_FIELD', base.place, ctx.Identifier().getText(), rhs.place, types=(base.type,))
         self.free(base)
         return rhs
 
@@ -435,6 +496,7 @@ class TACGenerator(CompiscriptVisitor):
         out = self.tmp(); else_label, end = self.label('ternary_else'), self.label('ternary_end')
         self.emit('IF_FALSE', cond.place, else_label); self.free(cond)
         left = self.visit(exprs[0]); self.emit('MOVE', out.place, left.place); self.free(left)
+        out.type = left.type
         self.emit('GOTO', end); self.emit('LABEL', else_label)
         right = self.visit(exprs[1]); self.emit('MOVE', out.place, right.place); self.free(right)
         self.emit('LABEL', end)
@@ -450,9 +512,12 @@ class TACGenerator(CompiscriptVisitor):
             if out is value:
                 # Reutilización in situ: conserva el registro y sobrescribe un valor muerto.
                 self.pool.reused += 1
-            self.emit('BIN', out.place, value.place, op, right.place, ctx=ctx)
+            result_type = self._binary_type(op, value.type, right.type)
+            self.emit('BIN', out.place, value.place, op, right.place, ctx=ctx,
+                      types=(value.type, right.type, result_type))
             if out is not value: self.free(value)
             self.free(right)
+            out.type = result_type
             value = out
         return value
 
@@ -470,6 +535,7 @@ class TACGenerator(CompiscriptVisitor):
         value = self.visit(pieces[0])
         if len(pieces) == 1: return value
         out, end = self.tmp(), self.label('shortcircuit')
+        out.type = 'boolean'
         self.emit('MOVE', out.place, value.place); self.free(value)
         for next_expr in pieces[1:]:
             self.emit(jump, out.place, end)
@@ -487,6 +553,7 @@ class TACGenerator(CompiscriptVisitor):
             out = v if v.temporary else self.tmp()
             if out is v: self.pool.reused += 1
             self.emit('UNARY', out.place, ctx.getChild(0).getText(), v.place, ctx=ctx)
+            out.type = 'boolean' if ctx.getChild(0).getText() == '!' else 'integer'
             return out
         return self.visit(ctx.primaryExpr())
 
@@ -497,7 +564,10 @@ class TACGenerator(CompiscriptVisitor):
 
     def visitLiteralExpr(self, ctx):
         if ctx.arrayLiteral(): return self.visit(ctx.arrayLiteral())
-        return Value(ctx.getText())
+        text = ctx.getText()
+        kind = ('boolean' if text in {'true', 'false'} else 'null' if text == 'null'
+                else 'string' if text.startswith('"') else 'integer')
+        return Value(text, type=kind)
 
     def visitArrayLiteral(self, ctx):
         expressions = ctx.expression()
@@ -505,11 +575,22 @@ class TACGenerator(CompiscriptVisitor):
         self.emit('NEW_ARRAY', result.place, str(len(expressions)), ctx=ctx)
         for i, expr in enumerate(expressions):
             v = self.visit(expr)
-            self.emit('ARRAY_SET', result.place, str(i), v.place)
+            self.emit('ARRAY_SET', result.place, str(i), v.place, note='literal')
             self.free(v)
         return result
 
-    def visitIdentifierExpr(self, ctx): return Value(self.name(ctx.Identifier().getText()))
+    def visitIdentifierExpr(self, ctx):
+        identifier = ctx.Identifier().getText()
+        member = self._member_symbol(identifier)
+        if member is not None:
+            # Acceso diferido equivalente a ``this.miembro``.
+            return Value(f'this.{identifier}', False, receiver='this',
+                         type='function' if member.kind == 'method' else member.type_name,
+                         owner_type=member.owner_class)
+        symbol = self.symbols.lookup(identifier, self.scope)
+        kind = 'function' if getattr(symbol, 'kind', '') in {'function', 'method'} else getattr(symbol, 'type_name', 'unknown')
+        return Value(self.name(identifier), type=kind or 'unknown')
+
     def visitThisExpr(self, ctx): return Value('this')
 
     def visitNewExpr(self, ctx):
@@ -519,12 +600,13 @@ class TACGenerator(CompiscriptVisitor):
         # Snapshot each earlier argument before a later argument can mutate it.
         args = [self.snapshot(self.visit(expr)) for expr in params]
         obj = self.tmp()
+        obj.type = name
         self.emit('NEW', obj.place, name, ctx=ctx)
         # NEW initializes the inherited field layout; constructor follows.
         self.emit('INIT_FIELDS', obj.place, name)
         if args:
             for arg in args: self.emit('PARAM', arg.place)
-            self.emit('CALL_METHOD', '_', obj.place + '.constructor', str(len(args)), ctx=ctx)
+            self.emit('CALL_METHOD', '_', obj.place + '.constructor', str(len(args)), ctx=ctx, types=(name,))
             self.free(*args)
         else:
             # Explicit zero-argument constructors must also be invoked.
@@ -532,40 +614,45 @@ class TACGenerator(CompiscriptVisitor):
             parent = info
             while parent is not None:
                 if 'constructor' in parent.methods:
-                    self.emit('CALL_METHOD', '_', obj.place + '.constructor', '0')
+                    self.emit('CALL_METHOD', '_', obj.place + '.constructor', '0', types=(name,))
                     break
                 parent = self.classes.get(parent.parent) if parent.parent else None
         return obj
 
     def _apply_suffix(self, base, suffix):
         if getattr(suffix, "expression", lambda: None)() is not None:
+            if base.receiver is not None:
+                base = self._load_field(base)
             base = self.snapshot(base)
             index = self.visit(suffix.expression())
             out = self.tmp()
+            out.type = getattr(suffix, '_expr_type', 'unknown')
+            if out.type == 'unknown' and base.type.endswith('[]'):
+                out.type = base.type[:-2]
             self.emit('ARRAY_GET', out.place, base.place, index.place, ctx=suffix)
             self.free(base, index)
             return out
         if getattr(suffix, "Identifier", lambda: None)():
             if base.receiver is not None:
-                intermediate = self.tmp()
-                obj, prop = base.place.rsplit(".", 1)
-                self.emit("GET_FIELD", intermediate.place, obj, prop)
-                if base.temporary: self.pool.release(obj)
-                base = intermediate
+                base = self._load_field(base)
             property_name = suffix.Identifier().getText()
             # Deferred property load: when followed by (), it denotes a method.
-            return Value(f'{base.place}.{property_name}', base.temporary, receiver=base.place)
+            return Value(f'{base.place}.{property_name}', base.temporary, receiver=base.place,
+                         type=getattr(suffix, '_expr_type', 'unknown'), owner_type=base.type)
         if suffix.getChild(0).getText() == '(':
             # Freeze receiver and each argument before later side effects.
             if base.receiver is not None:
                 receiver, field = base.place.rsplit('.', 1)
-                fixed = self.snapshot(Value(receiver, base.temporary))
-                base = Value(f'{fixed.place}.{field}', fixed.temporary, receiver=fixed.place)
+                fixed = self.snapshot(Value(receiver, base.temporary, type=base.owner_type))
+                base = Value(f'{fixed.place}.{field}', fixed.temporary, receiver=fixed.place,
+                             type=base.type, owner_type=base.owner_type)
             args = [self.snapshot(self.visit(expr)) for expr in (suffix.arguments().expression() if suffix.arguments() else [])]
             for arg in args: self.emit('PARAM', arg.place)
             out = self.tmp()
+            out.type = getattr(suffix, '_expr_type', 'unknown')
             if base.receiver is not None:
-                self.emit('CALL_METHOD', out.place, base.place, str(len(args)), ctx=suffix)
+                self.emit('CALL_METHOD', out.place, base.place, str(len(args)), ctx=suffix,
+                          types=(base.owner_type,))
             else:
                 self.emit('CALL', out.place, base.place, str(len(args)), ctx=suffix)
             # For a property receiver held in a temporary, release its register.
@@ -582,16 +669,8 @@ class TACGenerator(CompiscriptVisitor):
         for suffix in suffixes:
             if value.receiver is not None and getattr(suffix, "expression", lambda: None)() is not None:
                 # Resolve property before indexing it.
-                target = self.tmp()
-                base, prop = value.place.rsplit('.', 1)
-                self.emit('GET_FIELD', target.place, base, prop)
-                if value.temporary: self.pool.release(base)
-                value = target
+                value = self._load_field(value)
             value = self._apply_suffix(value, suffix)
         if value.receiver is not None:
-            out = self.tmp()
-            base, prop = value.place.rsplit('.', 1)
-            self.emit('GET_FIELD', out.place, base, prop)
-            if value.temporary: self.pool.release(base)
-            return out
+            return self._load_field(value)
         return value

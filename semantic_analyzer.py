@@ -18,6 +18,7 @@ NULL = "null"
 FUNCTION = "function"
 NUMERIC_TYPES = {"integer"}
 PRIMITIVE_TYPES = {"integer", "string", "boolean"}
+CONCATENABLE_TYPES = {"string", "integer", "boolean"}
 
 
 @dataclass
@@ -172,6 +173,16 @@ class SemanticAnalyzer(CompiscriptVisitor):
         if actual == NULL:
             # null es aceptable para referencias y arreglos, no para primitivos numéricos/booleanos.
             return expected not in {"integer", "boolean"}
+
+        # Herencia (Proyecto 3): una instancia de una clase derivada puede usarse
+        # donde se espera su clase base (polimorfismo de subtipos).
+        if expected in self.classes and actual in self.classes:
+            current, seen = actual, set()
+            while current in self.classes and current not in seen:
+                if current == expected:
+                    return True
+                seen.add(current)
+                current = self.classes[current].parent
         return False
 
     def _common_type(self, left: str, right: str) -> str:
@@ -190,6 +201,19 @@ class SemanticAnalyzer(CompiscriptVisitor):
 
         if {left, right} <= NUMERIC_TYPES:
             return "integer"
+        if left in self.classes and right in self.classes:
+            # Ancestro común más cercano: [new Base(), new Derivada()] es Base[].
+            if self._compatible(left, right):
+                return left
+            if self._compatible(right, left):
+                return right
+            ancestors, current = [], left
+            while current in self.classes and current not in ancestors:
+                ancestors.append(current)
+                current = self.classes[current].parent
+            for candidate in ancestors:
+                if self._compatible(candidate, right):
+                    return candidate
         if left == NULL and right not in {"integer", "boolean"}:
             return right
         if right == NULL and left not in {"integer", "boolean"}:
@@ -230,6 +254,22 @@ class SemanticAnalyzer(CompiscriptVisitor):
             symbol.initialized = True
             if symbol.type_name == UNKNOWN and actual_type != UNKNOWN:
                 symbol.type_name = actual_type
+
+    def visit(self, tree):
+        """Visita un nodo y anota en él el tipo estático de la expresión.
+
+        La anotación ``_expr_type`` no altera el análisis semántico: la
+        consumen el generador de TAC y el backend MIPS (Proyecto 3) para
+        elegir entre suma entera y concatenación, la rutina de ``print`` y
+        los desplazamientos de campos y métodos.
+        """
+        result = super().visit(tree)
+        if isinstance(result, ExprInfo):
+            try:
+                tree._expr_type = result.type_name
+            except AttributeError:
+                pass
+        return result
 
     def _safe_visit(self, node) -> ExprInfo | None:
         if node is None:
@@ -970,7 +1010,7 @@ class SemanticAnalyzer(CompiscriptVisitor):
                 Symbol(
                     name=ctx.Identifier().getText(),
                     kind="variable",
-                    type_name=UNKNOWN,
+                    type_name="string",
                     line=tok.line,
                     column=tok.column + 1,
                     mutable=True,
@@ -1158,7 +1198,10 @@ class SemanticAnalyzer(CompiscriptVisitor):
         result = types[0]
         for index, right in enumerate(types[1:]):
             op = ops[index] if index < len(ops) else "+"
-            if op == "+" and result == "string" and right == "string":
+            if op == "+" and "string" in {result, right} and {result, right} <= CONCATENABLE_TYPES:
+                # Proyecto 3: string + (string | integer | boolean) concatena,
+                # convirtiendo el operando no textual (igual que en TypeScript
+                # y que el programa de ejemplo oficial: "5 + 1 = " + addFive).
                 result = "string"
             elif self._is_numeric(result) and self._is_numeric(right):
                 result = self._common_type(result, right)
@@ -1169,8 +1212,8 @@ class SemanticAnalyzer(CompiscriptVisitor):
                     ctx,
                     "SEM_ARITHMETIC_TYPE",
                     op,
-                    f"El operador {op} requiere operandos numéricos; solo + permite string + string. Se obtuvo {result} y {right}.",
-                    "Usa integer en operaciones aritméticas o dos string para concatenación con +.",
+                    f"El operador {op} requiere operandos numéricos; solo + permite concatenar string con string, integer o boolean. Se obtuvo {result} y {right}.",
+                    "Usa integer en operaciones aritméticas o al menos un string para concatenación con +.",
                 )
                 result = UNKNOWN
         return ExprInfo(result)
@@ -1335,50 +1378,57 @@ class SemanticAnalyzer(CompiscriptVisitor):
     def visitLeftHandSide(self, ctx: CompiscriptParser.LeftHandSideContext):
         current = self._safe_visit(ctx.primaryAtom()) or ExprInfo(UNKNOWN)
         for suffix in ctx.suffixOp():
-            if isinstance(suffix, CompiscriptParser.CallExprContext):
-                arg_types = self._argument_types(suffix.arguments())
-                if current.callable_symbol is None:
-                    self._error(
-                        suffix,
-                        "SEM_NOT_CALLABLE",
-                        ctx.getText(),
-                        f"La expresión de tipo {current.type_name} no puede invocarse como función.",
-                        "Invoca únicamente identificadores de función o métodos.",
-                    )
-                    current = ExprInfo(UNKNOWN)
-                else:
-                    self._validate_call(suffix, current.callable_symbol, arg_types)
-                    current = ExprInfo(current.callable_symbol.return_type)
-            elif isinstance(suffix, CompiscriptParser.IndexExprContext):
-                index_type = (self._safe_visit(suffix.expression()) or ExprInfo(UNKNOWN)).type_name
-                if index_type not in {"integer", UNKNOWN}:
-                    self._error(
-                        suffix.expression(),
-                        "SEM_INDEX_TYPE",
-                        suffix.expression().getText(),
-                        f"El índice de un arreglo debe ser integer, pero se obtuvo {index_type}.",
-                        "Usa una expresión de tipo integer como índice.",
-                    )
-                if not self._is_array(current.type_name) and current.type_name != UNKNOWN:
-                    self._error(
-                        suffix,
-                        "SEM_INDEX_NON_ARRAY",
-                        current.type_name,
-                        f"No se puede indexar una expresión de tipo {current.type_name} porque no es un arreglo.",
-                        "Aplica [] únicamente sobre valores de tipo T[].",
-                    )
-                    current = ExprInfo(UNKNOWN)
-                else:
-                    current = ExprInfo(self._array_element(current.type_name), assignable=True)
-            elif isinstance(suffix, CompiscriptParser.PropertyAccessExprContext):
-                name = suffix.Identifier().getText()
-                member = self._resolve_property(suffix, current.type_name, name, for_assignment=False)
-                if member is None:
-                    current = ExprInfo(UNKNOWN)
-                elif member.kind == "method":
-                    current = ExprInfo(FUNCTION, symbol=member, callable_symbol=member, assignable=False)
-                else:
-                    current = ExprInfo(member.type_name, symbol=member, assignable=member.mutable)
+            suffix._base_type = current.type_name
+            current = self._apply_suffix_semantics(ctx, suffix, current)
+            suffix._expr_type = current.type_name
+        return current
+
+    def _apply_suffix_semantics(self, ctx, suffix, current: ExprInfo) -> ExprInfo:
+        """Aplica un sufijo (llamada, índice o propiedad) y devuelve su ExprInfo."""
+        if isinstance(suffix, CompiscriptParser.CallExprContext):
+            arg_types = self._argument_types(suffix.arguments())
+            if current.callable_symbol is None:
+                self._error(
+                    suffix,
+                    "SEM_NOT_CALLABLE",
+                    ctx.getText(),
+                    f"La expresión de tipo {current.type_name} no puede invocarse como función.",
+                    "Invoca únicamente identificadores de función o métodos.",
+                )
+                current = ExprInfo(UNKNOWN)
+            else:
+                self._validate_call(suffix, current.callable_symbol, arg_types)
+                current = ExprInfo(current.callable_symbol.return_type)
+        elif isinstance(suffix, CompiscriptParser.IndexExprContext):
+            index_type = (self._safe_visit(suffix.expression()) or ExprInfo(UNKNOWN)).type_name
+            if index_type not in {"integer", UNKNOWN}:
+                self._error(
+                    suffix.expression(),
+                    "SEM_INDEX_TYPE",
+                    suffix.expression().getText(),
+                    f"El índice de un arreglo debe ser integer, pero se obtuvo {index_type}.",
+                    "Usa una expresión de tipo integer como índice.",
+                )
+            if not self._is_array(current.type_name) and current.type_name != UNKNOWN:
+                self._error(
+                    suffix,
+                    "SEM_INDEX_NON_ARRAY",
+                    current.type_name,
+                    f"No se puede indexar una expresión de tipo {current.type_name} porque no es un arreglo.",
+                    "Aplica [] únicamente sobre valores de tipo T[].",
+                )
+                current = ExprInfo(UNKNOWN)
+            else:
+                current = ExprInfo(self._array_element(current.type_name), assignable=True)
+        elif isinstance(suffix, CompiscriptParser.PropertyAccessExprContext):
+            name = suffix.Identifier().getText()
+            member = self._resolve_property(suffix, current.type_name, name, for_assignment=False)
+            if member is None:
+                current = ExprInfo(UNKNOWN)
+            elif member.kind == "method":
+                current = ExprInfo(FUNCTION, symbol=member, callable_symbol=member, assignable=False)
+            else:
+                current = ExprInfo(member.type_name, symbol=member, assignable=member.mutable)
         return current
 
     def _argument_types(self, arguments_ctx) -> list[str]:
