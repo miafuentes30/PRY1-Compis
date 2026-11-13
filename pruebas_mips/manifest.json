@@ -1,0 +1,493 @@
+[
+  {
+    "archivo": "00_programa_ejemplo.cps",
+    "categoria": "Integración",
+    "descripcion": "Programa de ejemplo con todas las características del lenguaje.",
+    "esperado": "OK",
+    "codigo_salida": 0,
+    "salida": [
+      "5 + 1 = 6",
+      "Greater than 5",
+      "Result is now 10",
+      "Result is now 9",
+      "Result is now 8",
+      "Loop index: 0",
+      "Loop index: 1",
+      "Loop index: 2",
+      "Number: 1",
+      "Number: 2",
+      "Number: 4",
+      "It's seven",
+      "It's six",
+      "Something else",
+      "Caught an error: indice de arreglo fuera de rango",
+      "Rex barks.",
+      "First number: 1",
+      "Multiples of 2: 2, 4",
+      "Program finished."
+    ]
+  },
+  {
+    "archivo": "01_variables_constantes.cps",
+    "categoria": "Variables y constantes",
+    "descripcion": "let, var, const, valores por omisión y null.",
+    "esperado": "OK",
+    "codigo_salida": 0,
+    "salida": [
+      "314",
+      "Hola",
+      "15",
+      "15",
+      "true",
+      "Compiscript",
+      "null",
+      "321",
+      "0",
+      "null",
+      "false"
+    ]
+  },
+  {
+    "archivo": "02_aritmetica.cps",
+    "categoria": "Expresiones aritméticas",
+    "descripcion": "Precedencia, agrupamiento, división/módulo truncados, desborde de 32 bits, mul por potencias de 2.",
+    "esperado": "OK",
+    "codigo_salida": 0,
+    "salida": [
+      "11",
+      "9",
+      "3",
+      "2",
+      "-7",
+      "-3",
+      "-2",
+      "18",
+      "11",
+      "94",
+      "3",
+      "8",
+      "-2147483648",
+      "22",
+      "44",
+      "11"
+    ]
+  },
+  {
+    "archivo": "03_logica.cps",
+    "categoria": "Expresiones lógicas",
+    "descripcion": "Relacionales, !, && y || con cortocircuito verificado por efectos laterales.",
+    "esperado": "OK",
+    "codigo_salida": 0,
+    "salida": [
+      "true",
+      "true",
+      "true",
+      "false",
+      "true",
+      "false",
+      "false",
+      "true",
+      "false",
+      "true",
+      "false",
+      "1",
+      "true",
+      "2",
+      "true",
+      "4",
+      "true"
+    ]
+  },
+  {
+    "archivo": "04_cadenas.cps",
+    "categoria": "Expresiones aritméticas",
+    "descripcion": "Concatenación con conversión de integer/boolean y comparación de cadenas por contenido.",
+    "esperado": "OK",
+    "codigo_salida": 0,
+    "salida": [
+      "Hola Mundo",
+      "Hola Mundo!",
+      "Edad: 21",
+      "21 años",
+      "Negativo: -45",
+      "Verdadero: true",
+      "Suma: 5 y resta: -1",
+      "true",
+      "false",
+      "false",
+      "true",
+      "true",
+      "true",
+      "0",
+      "Nulo: null",
+      "iguales por contenido",
+      "abc va antes que b"
+    ]
+  },
+  {
+    "archivo": "05_arreglos.cps",
+    "categoria": "Arreglos",
+    "descripcion": "Arreglos 1D y 2D, lectura, escritura, impresión, arreglo vacío y paso como parámetro.",
+    "esperado": "OK",
+    "codigo_salida": 0,
+    "salida": [
+      "90",
+      "100",
+      "95",
+      "[90, 95, 100]",
+      "6",
+      "50",
+      "[[50, 2, 3], [4, 5, 6]]",
+      "Luis",
+      "[Ana, Luis, Eva]",
+      "[true, false]",
+      "285",
+      "[]",
+      "5",
+      "5"
+    ]
+  },
+  {
+    "archivo": "06_if_else.cps",
+    "categoria": "Sentencias de control",
+    "descripcion": "if/else anidado y en cascada, returns dentro de ramas.",
+    "esperado": "OK",
+    "codigo_salida": 0,
+    "salida": [
+      "Mayor a 10",
+      "divisible entre 6",
+      "negativo",
+      "cero",
+      "pequeno",
+      "grande",
+      "bandera apagada"
+    ]
+  },
+  {
+    "archivo": "07_while_do_while.cps",
+    "categoria": "Sentencias de control",
+    "descripcion": "while, do-while (al menos una vez), break, continue, ciclos anidados.",
+    "esperado": "OK",
+    "codigo_salida": 0,
+    "salida": [
+      "5",
+      "-1",
+      "1",
+      "25",
+      "25"
+    ]
+  },
+  {
+    "archivo": "08_for.cps",
+    "categoria": "Sentencias de control",
+    "descripcion": "for completo, sin condición, con break/continue y anidado.",
+    "esperado": "OK",
+    "codigo_salida": 0,
+    "salida": [
+      "0",
+      "1",
+      "2",
+      "5050",
+      "5",
+      "4",
+      "10",
+      "faltan 3",
+      "faltan 2",
+      "faltan 1"
+    ]
+  },
+  {
+    "archivo": "09_foreach.cps",
+    "categoria": "Sentencias de control",
+    "descripcion": "foreach sobre enteros, cadenas y matrices; break/continue; arreglo vacío.",
+    "esperado": "OK",
+    "codigo_salida": 0,
+    "salida": [
+      "31",
+      "3",
+      "4",
+      "5",
+      "-> uno",
+      "-> dos",
+      "-> tres",
+      "21",
+      "fin"
+    ]
+  },
+  {
+    "archivo": "10_switch.cps",
+    "categoria": "Sentencias de control",
+    "descripcion": "switch con caída, break, default y discriminante string.",
+    "esperado": "OK",
+    "codigo_salida": 0,
+    "salida": [
+      "uno",
+      "dos",
+      "dos",
+      "tres",
+      "otro",
+      "segundo dia",
+      "diez",
+      "fin"
+    ]
+  },
+  {
+    "archivo": "11_ternario.cps",
+    "categoria": "Sentencias de control",
+    "descripcion": "Operador ternario simple y anidado.",
+    "esperado": "OK",
+    "codigo_salida": 0,
+    "salida": [
+      "impar",
+      "10",
+      "9",
+      "4",
+      "medio"
+    ]
+  },
+  {
+    "archivo": "12_funciones_parametros.cps",
+    "categoria": "Funciones y parámetros",
+    "descripcion": "Paso en $a0-$a3 y en pila (6 parámetros), funciones void, llamadas anidadas.",
+    "esperado": "OK",
+    "codigo_salida": 0,
+    "salida": [
+      "5",
+      "Hola Mundo",
+      "llamada 0",
+      "llamada 1",
+      "123456",
+      "30",
+      "true",
+      "false",
+      "10",
+      "12",
+      "22",
+      "123456"
+    ]
+  },
+  {
+    "archivo": "13_recursion.cps",
+    "categoria": "Recursividad",
+    "descripcion": "factorial, fibonacci, potencia, mcd, recursión mutua, hanoi y Ackermann.",
+    "esperado": "OK",
+    "codigo_salida": 0,
+    "salida": [
+      "120",
+      "3628800",
+      "55",
+      "1024",
+      "12",
+      "35",
+      "true",
+      "true",
+      "31",
+      "9"
+    ]
+  },
+  {
+    "archivo": "14_closures.cps",
+    "categoria": "Registros de activación",
+    "descripcion": "Funciones anidadas con enlace de acceso de 1 y 2 niveles; globales en .data.",
+    "esperado": "OK",
+    "codigo_salida": 0,
+    "salida": [
+      "1",
+      "116",
+      "74",
+      "7",
+      "8"
+    ]
+  },
+  {
+    "archivo": "15_clases_objetos.cps",
+    "categoria": "Clases y objetos",
+    "descripcion": "Atributos, constructor, métodos, this, inicializadores, miembros sin this, objetos en arreglos.",
+    "esperado": "OK",
+    "codigo_salida": 0,
+    "salida": [
+      "3",
+      "4",
+      "7",
+      "punto (13, 24)",
+      "100",
+      "punto",
+      "2",
+      "<objeto Punto>",
+      "punto (2, 2)",
+      "punto (100, 24)",
+      "3",
+      "9",
+      "9",
+      "21",
+      "8",
+      "punto (3, 4)"
+    ]
+  },
+  {
+    "archivo": "16_herencia.cps",
+    "categoria": "Herencia",
+    "descripcion": "Campos y métodos heredados, sobrescritura, despacho dinámico por vtable y polimorfismo.",
+    "esperado": "OK",
+    "codigo_salida": 0,
+    "salida": [
+      "Generico hace ruido.",
+      "Toby ladra.",
+      "Bolt chilla.",
+      "Piolin hace ruido.",
+      "Soy Toby y Toby ladra.",
+      "Soy Bolt y Bolt chilla.",
+      "4",
+      "2",
+      "2",
+      "3",
+      "3",
+      "Toby ladra.",
+      "Bolt chilla.",
+      "Soy Piolin y Piolin hace ruido.",
+      "Soy Bolt y Bolt chilla.",
+      "<objeto Cachorro>"
+    ]
+  },
+  {
+    "archivo": "17_try_catch.cps",
+    "categoria": "try/catch",
+    "descripcion": "Índice fuera de rango, división entre cero, nulo, error en recursión, try anidados, break/continue/return.",
+    "esperado": "OK",
+    "codigo_salida": 0,
+    "salida": [
+      "Error atrapado: indice de arreglo fuera de rango",
+      "Error atrapado: division entre cero",
+      "Error atrapado: referencia nula",
+      "Error atrapado: referencia nula",
+      "2",
+      "Desde la recursion: indice de arreglo fuera de rango",
+      "interno: indice de arreglo fuera de rango",
+      "externo: division entre cero",
+      "13",
+      "2",
+      "2",
+      "5",
+      "3",
+      "-1",
+      "final: indice de arreglo fuera de rango",
+      "fin"
+    ]
+  },
+  {
+    "archivo": "18_presion_registros.cps",
+    "categoria": "Selección de registros",
+    "descripcion": "Más valores vivos que registros: getReg() derrama y guarda temporales antes de llamadas.",
+    "esperado": "OK",
+    "codigo_salida": 0,
+    "salida": [
+      "900",
+      "143669",
+      "78",
+      "767",
+      "133274",
+      "78"
+    ],
+    "min_derrames": 1
+  },
+  {
+    "archivo": "19_arbol_activacion.cps",
+    "categoria": "Registros de activación",
+    "descripcion": "Árbol de activación de fib(4) y de llamadas compuestas.",
+    "esperado": "OK",
+    "codigo_salida": 0,
+    "salida": [
+      "3",
+      "14"
+    ],
+    "arbol_esperado": [
+      "main()",
+      "├── fib(n=4) → 3",
+      "│   ├── fib(n=3) → 2",
+      "│   │   ├── fib(n=2) → 1",
+      "│   │   │   ├── fib(n=1) → 1",
+      "│   │   │   └── fib(n=0) → 0",
+      "│   │   └── fib(n=1) → 1",
+      "│   └── fib(n=2) → 1",
+      "│       ├── fib(n=1) → 1",
+      "│       └── fib(n=0) → 0",
+      "└── compuesto(x=3) → 14",
+      "    ├── doble(x=3) → 6",
+      "    └── doble(x=4) → 8"
+    ]
+  },
+  {
+    "archivo": "20_error_no_capturado.cps",
+    "categoria": "try/catch",
+    "descripcion": "FALLO en ejecución: índice fuera de rango sin try; termina con código 1.",
+    "esperado": "ERROR_EJECUCION",
+    "codigo_salida": 1,
+    "salida": [
+      "antes del error",
+      "Error en tiempo de ejecucion no capturado: indice de arreglo fuera de rango"
+    ]
+  },
+  {
+    "archivo": "21_division_cero_no_capturada.cps",
+    "categoria": "try/catch",
+    "descripcion": "FALLO en ejecución: división entre cero sin try; termina con código 1.",
+    "esperado": "ERROR_EJECUCION",
+    "codigo_salida": 1,
+    "salida": [
+      "5",
+      "Error en tiempo de ejecucion no capturado: division entre cero"
+    ]
+  },
+  {
+    "archivo": "22_programa_completo.cps",
+    "categoria": "Integración",
+    "descripcion": "Inventario: clases, herencia, arreglos, ordenamiento, recursión, switch y try/catch.",
+    "esperado": "OK",
+    "codigo_salida": 0,
+    "salida": [
+      "Arroz [general] x25 = 200",
+      "Leche [perecedero] x10 = 60",
+      "Frijol [general] x30 = 300",
+      "[60, 200, 300]",
+      "Valor del inventario: 560",
+      "inventario alto",
+      "No existe ese producto: indice de arreglo fuera de rango"
+    ]
+  },
+  {
+    "archivo": "23_error_semantico.cps",
+    "categoria": "Fallos de compilación",
+    "descripcion": "FALLO: errores semánticos; no se genera TAC ni MIPS.",
+    "esperado": "ERROR_COMPILACION",
+    "codigos_esperados": [
+      "SEM_ARGUMENT_COUNT",
+      "SEM_ARITHMETIC_TYPE",
+      "SEM_ASSIGN_TYPE"
+    ],
+    "tipos_esperados": [
+      "Semántico"
+    ]
+  },
+  {
+    "archivo": "24_error_sintactico.cps",
+    "categoria": "Fallos de compilación",
+    "descripcion": "FALLO: error sintáctico; no se genera TAC ni MIPS.",
+    "esperado": "ERROR_COMPILACION",
+    "codigos_esperados": [],
+    "tipos_esperados": [
+      "Sintáctico"
+    ]
+  },
+  {
+    "archivo": "25_error_generacion.cps",
+    "categoria": "Fallos de compilación",
+    "descripcion": "FALLO del backend: clase local que captura una variable de la función; diagnóstico MIPS_UNSUPPORTED.",
+    "esperado": "ERROR_GENERACION",
+    "codigos_esperados": [
+      "MIPS_UNSUPPORTED"
+    ],
+    "tipos_esperados": [
+      "Generación"
+    ]
+  }
+]
