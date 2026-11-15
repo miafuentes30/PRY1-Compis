@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import threading
 import tkinter as tk
 import tkinter.font as tkfont
 from pathlib import Path
@@ -11,7 +12,7 @@ from tkinter import filedialog, messagebox, ttk
 from bootstrap import ensure_generated
 
 
-APP_TITLE = "Compiscript IDE · Proyecto 2"
+APP_TITLE = "Compiscript IDE · Proyecto 3"
 BG = "#F4F7FB"
 SURFACE = "#FFFFFF"
 NAVY = "#14213D"
@@ -41,6 +42,19 @@ DARK_DETAIL = "#172033"
 DARK_HEADING = "#1E293B"
 DARK_HOVER = "#253247"
 DARK_BLUE_TEXT = "#60A5FA"
+
+
+# Fuente monoespaciada: se elige la primera disponible al iniciar la aplicación
+# (Cascadia Code/Consolas en Windows, Menlo en macOS, DejaVu Sans Mono en Linux).
+MONO_FONT = "Cascadia Code"
+MONO_CANDIDATES = ("Cascadia Code", "Consolas", "Menlo", "SF Mono", "DejaVu Sans Mono",
+                   "Liberation Mono", "Ubuntu Mono", "Courier New", "Courier")
+
+
+def _pick_mono_font(root: tk.Misc) -> None:
+    global MONO_FONT
+    available = set(tkfont.families(root))
+    MONO_FONT = next((name for name in MONO_CANDIDATES if name in available), "TkFixedFont")
 
 
 def _show_startup_error(error: Exception) -> None:
@@ -87,7 +101,7 @@ class CodeEditor(ttk.Frame):
             undo=True,
             maxundo=-1,
             autoseparators=True,
-            font=("Cascadia Code", 11),
+            font=(MONO_FONT, 11),
             bg=EDITOR_BG,
             fg=EDITOR_FG,
             insertbackground="#F8FAFC",
@@ -166,7 +180,7 @@ class CodeEditor(ttk.Frame):
                 anchor="ne",
                 text=line,
                 fill="#7C8AA5",
-                font=("Cascadia Code", 10),
+                font=(MONO_FONT, 10),
             )
             index = self.text.index(f"{index}+1line")
 
@@ -275,6 +289,7 @@ class CompiscriptApp(tk.Tk):
         # entre modo claro y oscuro sin reconstruir la interfaz.
         self._light_widget_options: dict[str, dict[str, str]] = {}
 
+        _pick_mono_font(self)
         self._configure_styles()
         self._build_ui()
         self._snapshot_fonts()
@@ -371,7 +386,7 @@ class CompiscriptApp(tk.Tk):
         self._build_statusbar()
 
     def _build_header(self) -> None:
-        header = tk.Frame(self, bg=NAVY, height=88)
+        header = tk.Frame(self, bg=NAVY, height=100)
         header.pack(fill="x")
         header.pack_propagate(False)
         inner = tk.Frame(header, bg=NAVY)
@@ -388,7 +403,7 @@ class CompiscriptApp(tk.Tk):
         ).pack(anchor="w")
         tk.Label(
             title_box,
-            text="Editor, diagnósticos, TAC y tabla de símbolos · archivos .cps",
+            text="Editor, diagnósticos, TAC, MIPS, ejecución y árbol de activación · archivos .cps",
             bg=NAVY,
             fg="#B8C6DC",
             font=("Segoe UI", 10),
@@ -396,7 +411,7 @@ class CompiscriptApp(tk.Tk):
 
         badge = tk.Label(
             inner,
-            text="ANTLR4 · Análisis completo · TAC",
+            text="ANTLR4 · TAC · MIPS · Simulador",
             bg="#203354",
             fg="#DCE7F8",
             font=("Segoe UI", 9, "bold"),
@@ -413,9 +428,11 @@ class CompiscriptApp(tk.Tk):
         ttk.Button(buttons, text="Abrir archivo .cps", command=self.open_file, style="Secondary.TButton").pack(side="left")
         ttk.Button(buttons, text="Guardar", command=self.save_file, style="Secondary.TButton").pack(side="left", padx=(8, 0))
         ttk.Button(buttons, text="Guardar como", command=self.save_as, style="Secondary.TButton").pack(side="left", padx=(8, 0))
-        ttk.Button(buttons, text="Analizar  F5", command=self.analyze, style="Primary.TButton").pack(side="left", padx=(14, 0))
+        ttk.Button(buttons, text="Compilar  F5", command=self.analyze, style="Primary.TButton").pack(side="left", padx=(14, 0))
+        self.run_button = ttk.Button(buttons, text="Ejecutar  F6", command=self.run_program, style="Primary.TButton")
+        self.run_button.pack(side="left", padx=(8, 0))
         ttk.Button(buttons, text="Limpiar", command=self.clear_all, style="Secondary.TButton").pack(side="left", padx=(8, 0))
-        ttk.Button(buttons, text="Pruebas P1/P2", command=self.open_rubric_tests, style="Secondary.TButton").pack(side="left", padx=(8, 0))
+        ttk.Button(buttons, text="Pruebas", command=self.open_rubric_tests, style="Secondary.TButton").pack(side="left", padx=(8, 0))
         self.theme_button = ttk.Button(
             buttons, text="Modo oscuro", command=self.toggle_dark_mode, style="Secondary.TButton"
         )
@@ -438,11 +455,17 @@ class CompiscriptApp(tk.Tk):
             anchor="w",
         )
         self.file_label.pack(side="left", pady=5)
+        self.optimize_var = tk.BooleanVar(value=True)
+        tk.Checkbutton(
+            file_box, text="Optimización por mirilla", variable=self.optimize_var,
+            command=self._on_optimize_toggle, bg=SURFACE, fg=TEXT, activebackground=SURFACE,
+            selectcolor=SURFACE, font=("Segoe UI", 9),
+        ).pack(side="right", padx=12)
 
     def _build_stats(self) -> None:
         stats = tk.Frame(self, bg=BG)
         stats.pack(fill="x", padx=22, pady=(0, 10))
-        for index in range(4):
+        for index in range(5):
             stats.columnconfigure(index, weight=1, uniform="stats")
 
         self.total_card = StatCard(stats, "Resultado", "Sin analizar", PRIMARY)
@@ -452,7 +475,9 @@ class CompiscriptApp(tk.Tk):
         self.total_card.grid(row=0, column=0, sticky="ew", padx=(0, 6))
         self.lexical_card.grid(row=0, column=1, sticky="ew", padx=6)
         self.syntactic_card.grid(row=0, column=2, sticky="ew", padx=6)
-        self.semantic_card.grid(row=0, column=3, sticky="ew", padx=(6, 0))
+        self.semantic_card.grid(row=0, column=3, sticky="ew", padx=6)
+        self.mips_card = StatCard(stats, "Instrucciones MIPS", "—", SUCCESS)
+        self.mips_card.grid(row=0, column=4, sticky="ew", padx=(6, 0))
 
     def _build_workspace(self) -> None:
         paned = ttk.Panedwindow(self, orient="horizontal")
@@ -464,7 +489,7 @@ class CompiscriptApp(tk.Tk):
         tk.Label(editor_header, text="Código fuente", bg=SURFACE, fg=TEXT, font=("Segoe UI", 11, "bold")).pack(side="left")
         tk.Label(
             editor_header,
-            text="Ctrl+O abrir · Ctrl+S guardar · F5 TAC · Ctrl +/- zoom",
+            text="F5 compilar · F6 ejecutar",
             bg=SURFACE,
             fg=MUTED,
             font=("Segoe UI", 8),
@@ -487,7 +512,7 @@ class CompiscriptApp(tk.Tk):
         filter_combo = ttk.Combobox(
             results_header,
             textvariable=self.filter_var,
-            values=("Todos", "Léxicos", "Sintácticos", "Semánticos"),
+            values=("Todos", "Léxicos", "Sintácticos", "Semánticos", "Generación"),
             state="readonly",
             width=14,
         )
@@ -531,13 +556,13 @@ class CompiscriptApp(tk.Tk):
         self.detail_description.pack(fill="x", padx=12, pady=(0, 5))
         self.detail_suggestion = tk.Label(detail, text="", bg="#F8FAFC", fg=PRIMARY_DARK, font=("Segoe UI", 9, "bold"), justify="left", anchor="w", wraplength=630)
         self.detail_suggestion.pack(fill="x", padx=12)
-        self.detail_excerpt = tk.Text(detail, height=3, bg="#111827", fg="#D1D5DB", font=("Cascadia Code", 9), relief="flat", borderwidth=0, padx=9, pady=7, wrap="none")
+        self.detail_excerpt = tk.Text(detail, height=3, bg="#111827", fg="#D1D5DB", font=(MONO_FONT, 9), relief="flat", borderwidth=0, padx=9, pady=7, wrap="none")
         self.detail_excerpt.pack(fill="x", padx=12, pady=(7, 10))
         self.detail_excerpt.configure(state="disabled")
 
         # ---------------- Código intermedio TAC ----------------
         tac_tab = tk.Frame(self.notebook, bg=SURFACE)
-        self.notebook.add(tac_tab, text="Código intermedio (TAC)")
+        self.notebook.add(tac_tab, text="TAC")
         tac_header = tk.Frame(tac_tab, bg=SURFACE)
         tac_header.pack(fill="x", padx=8, pady=10)
         tk.Label(tac_header, text="Código de tres direcciones", bg=SURFACE, fg=TEXT,
@@ -550,7 +575,7 @@ class CompiscriptApp(tk.Tk):
         tac_body = tk.Frame(tac_tab, bg=SURFACE)
         tac_body.pack(fill="both", expand=True, padx=8, pady=(0, 9))
         self.tac_view = tk.Text(tac_body, bg=EDITOR_BG, fg="#D1FAE5", insertbackground="white",
-                                selectbackground="#334155", font=("Cascadia Code", 12),
+                                selectbackground="#334155", font=(MONO_FONT, 12),
                                 relief="flat", padx=14, pady=14, wrap="none", state="disabled")
         tac_scroll_y = ttk.Scrollbar(tac_body, orient="vertical", command=self.tac_view.yview)
         tac_scroll_x = ttk.Scrollbar(tac_body, orient="horizontal", command=self.tac_view.xview)
@@ -561,9 +586,11 @@ class CompiscriptApp(tk.Tk):
         tac_body.rowconfigure(0, weight=1)
         tac_body.columnconfigure(0, weight=1)
 
+        self._build_mips_tabs()
+
         # ---------------- Tabla de símbolos ----------------
         symbols_tab = tk.Frame(self.notebook, bg=SURFACE)
-        self.notebook.add(symbols_tab, text="Tabla de símbolos")
+        self.notebook.add(symbols_tab, text="Símbolos")
         symbols_header = tk.Frame(symbols_tab, bg=SURFACE)
         symbols_header.pack(fill="x", padx=8, pady=8)
         tk.Label(symbols_header, text="Símbolos por alcance", bg=SURFACE, fg=TEXT, font=("Segoe UI", 11, "bold")).pack(side="left")
@@ -589,7 +616,7 @@ class CompiscriptApp(tk.Tk):
 
         # ---------------- Árbol sintáctico ----------------
         tree_tab = tk.Frame(self.notebook, bg=SURFACE)
-        self.notebook.add(tree_tab, text="Árbol sintáctico")
+        self.notebook.add(tree_tab, text="Árbol ANTLR")
         tree_header = tk.Frame(tree_tab, bg=SURFACE)
         tree_header.pack(fill="x", padx=8, pady=8)
         tk.Label(tree_header, text="Árbol generado por ANTLR", bg=SURFACE, fg=TEXT, font=("Segoe UI", 11, "bold")).pack(side="left")
@@ -611,8 +638,108 @@ class CompiscriptApp(tk.Tk):
         parse_box.rowconfigure(0, weight=1)
         parse_box.columnconfigure(0, weight=1)
 
-        paned.add(editor_panel, weight=3)
-        paned.add(results_panel, weight=2)
+        paned.add(editor_panel, weight=2)
+        paned.add(results_panel, weight=3)
+        # El panel de resultados arranca más ancho para que quepan las nueve pestañas.
+        self.after(120, lambda: paned.sashpos(0, int(paned.winfo_width() * 0.40)) if paned.winfo_width() > 1 else None)
+
+    def _text_panel(self, parent: tk.Misc, fg: str = "#E2E8F0", size: int = 11) -> tk.Text:
+        """Área de texto oscura de solo lectura con barras de desplazamiento."""
+        body = tk.Frame(parent, bg=SURFACE)
+        body.pack(fill="both", expand=True, padx=8, pady=(0, 9))
+        view = tk.Text(body, bg=EDITOR_BG, fg=fg, insertbackground="white", selectbackground="#334155",
+                       font=(MONO_FONT, size), relief="flat", padx=14, pady=14, wrap="none",
+                       state="disabled")
+        scroll_y = ttk.Scrollbar(body, orient="vertical", command=view.yview)
+        scroll_x = ttk.Scrollbar(body, orient="horizontal", command=view.xview)
+        view.configure(yscrollcommand=scroll_y.set, xscrollcommand=scroll_x.set)
+        view.grid(row=0, column=0, sticky="nsew")
+        scroll_y.grid(row=0, column=1, sticky="ns")
+        scroll_x.grid(row=1, column=0, sticky="ew")
+        body.rowconfigure(0, weight=1)
+        body.columnconfigure(0, weight=1)
+        return view
+
+    @staticmethod
+    def _set_text(view: tk.Text, content: str) -> None:
+        view.configure(state="normal")
+        view.delete("1.0", "end")
+        view.insert("1.0", content)
+        view.configure(state="disabled")
+
+    def _tab_header(self, tab: tk.Misc, title: str) -> tuple[tk.Frame, tk.Label]:
+        header = tk.Frame(tab, bg=SURFACE)
+        header.pack(fill="x", padx=8, pady=(10, 2))
+        tk.Label(header, text=title, bg=SURFACE, fg=TEXT, font=("Segoe UI", 11, "bold")).pack(side="left")
+        # La información va en su propia fila para que los botones no se recorten con letra grande.
+        info = tk.Label(tab, text="", bg=SURFACE, fg=MUTED, font=("Segoe UI", 9), anchor="w")
+        info.pack(fill="x", padx=10, pady=(0, 6))
+        return header, info
+
+    def _build_mips_tabs(self) -> None:
+        """Pestañas del Proyecto 3: MIPS, ejecución, árbol de activación, registros y mirilla."""
+        # ---------------- Código MIPS ----------------
+        self.mips_tab = tk.Frame(self.notebook, bg=SURFACE)
+        self.notebook.add(self.mips_tab, text="MIPS")
+        header, self.mips_count = self._tab_header(self.mips_tab, "Ensamblador MIPS")
+        ttk.Button(header, text="Exportar .asm", command=self.export_asm,
+                   style="Secondary.TButton").pack(side="right", padx=(8, 0))
+        ttk.Button(header, text="Abrir MARS", command=self.open_mars,
+                   style="Secondary.TButton").pack(side="right", padx=(8, 0))
+        self.mips_view = self._text_panel(self.mips_tab, fg="#BFDBFE")
+        self.mips_view.tag_configure("asm_comment", foreground="#64748B")
+        self.mips_view.tag_configure("asm_label", foreground="#FDE68A")
+        self.mips_view.tag_configure("asm_directive", foreground="#C4B5FD")
+
+        # ---------------- Ejecución ----------------
+        self.run_tab = tk.Frame(self.notebook, bg=SURFACE)
+        self.notebook.add(self.run_tab, text="Ejecución")
+        header, self.run_info = self._tab_header(self.run_tab, "Consola del programa")
+        ttk.Button(header, text="Comparar MARS/SPIM", command=self.compare_external,
+                   style="Secondary.TButton").pack(side="right", padx=(8, 0))
+        ttk.Button(header, text="Ejecutar  F6", command=self.run_program,
+                   style="Primary.TButton").pack(side="right", padx=(8, 0))
+        self.console_view = self._text_panel(self.run_tab, fg="#D1FAE5", size=12)
+        self.console_view.tag_configure("console_note", foreground="#94A3B8")
+        self.console_view.tag_configure("console_error", foreground="#FCA5A5")
+        self.console_view.tag_configure("console_ok", foreground="#86EFAC")
+
+        # ---------------- Árbol de activación ----------------
+        self.activation_tab = tk.Frame(self.notebook, bg=SURFACE)
+        self.notebook.add(self.activation_tab, text="Activación")
+        _, self.activation_info = self._tab_header(self.activation_tab, "Árbol de activación (última ejecución)")
+        box = tk.Frame(self.activation_tab, bg=SURFACE)
+        box.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        self.activation_tree = ttk.Treeview(box, columns=("resultado", "estado", "marco"), show="tree headings")
+        self.activation_tree.heading("#0", text="Activación (argumentos)")
+        self.activation_tree.heading("resultado", text="Retorno")
+        self.activation_tree.heading("estado", text="Estado")
+        self.activation_tree.heading("marco", text="Marco")
+        self.activation_tree.column("#0", width=380, anchor="w")
+        self.activation_tree.column("resultado", width=150, anchor="w")
+        self.activation_tree.column("estado", width=110, anchor="center")
+        self.activation_tree.column("marco", width=80, anchor="center")
+        ay = ttk.Scrollbar(box, orient="vertical", command=self.activation_tree.yview)
+        ax = ttk.Scrollbar(box, orient="horizontal", command=self.activation_tree.xview)
+        self.activation_tree.configure(yscrollcommand=ay.set, xscrollcommand=ax.set)
+        self.activation_tree.grid(row=0, column=0, sticky="nsew")
+        ay.grid(row=0, column=1, sticky="ns")
+        ax.grid(row=1, column=0, sticky="ew")
+        box.rowconfigure(0, weight=1)
+        box.columnconfigure(0, weight=1)
+
+        # ---------------- Registros y marcos ----------------
+        self.frames_tab = tk.Frame(self.notebook, bg=SURFACE)
+        self.notebook.add(self.frames_tab, text="Registros")
+        _, self.frames_info = self._tab_header(self.frames_tab, "getReg() y registros de activación")
+        self.frames_view = self._text_panel(self.frames_tab, fg="#E2E8F0", size=10)
+
+        # ---------------- Mirilla ----------------
+        self.peephole_tab = tk.Frame(self.notebook, bg=SURFACE)
+        self.notebook.add(self.peephole_tab, text="Mirilla")
+        _, self.peephole_info = self._tab_header(self.peephole_tab, "Optimización por mirilla")
+        self.peephole_view = self._text_panel(self.peephole_tab, fg="#E2E8F0", size=10)
+        self._running = False
 
     def _build_statusbar(self) -> None:
         bar = tk.Frame(self, bg=NAVY, height=30)
@@ -646,6 +773,7 @@ class CompiscriptApp(tk.Tk):
         self.bind_all("<Control-Shift-S>", lambda _event: self.save_as())
         self.bind_all("<Control-t>", lambda _event: self.toggle_dark_mode())
         self.bind_all("<F5>", lambda _event: self.analyze())
+        self.bind_all("<F6>", lambda _event: self.run_program())
         self.bind_all("<Control-plus>", lambda _event: self.change_font(1))
         self.bind_all("<Control-equal>", lambda _event: self.change_font(1))
         self.bind_all("<Control-KP_Add>", lambda _event: self.change_font(1))
@@ -824,6 +952,7 @@ class CompiscriptApp(tk.Tk):
         lexical = sum(error.error_type == "Léxico" for error in self.errors)
         syntactic = sum(error.error_type == "Sintáctico" for error in self.errors)
         semantic = sum(error.error_type == "Semántico" for error in self.errors)
+        generation = sum(error.error_type == "Generación" for error in self.errors)
         self.lexical_card.set_value(str(lexical))
         self.syntactic_card.set_value(str(syntactic))
         self.semantic_card.set_value(str(semantic))
@@ -832,14 +961,21 @@ class CompiscriptApp(tk.Tk):
         self._populate_symbol_table()
         self._populate_parse_tree()
         self._populate_tac()
+        self._populate_mips()
 
         if not self.errors:
             self.total_card.set_value("Correcto")
-            self.status.configure(text="Compilación completada: TAC generado, sin errores léxicos, sintácticos ni semánticos.")
+            mips = self.analysis_result.mips
+            self.status.configure(
+                text=f"Compilación completada: TAC y {mips.program.instruction_count()} instrucciones MIPS "
+                     "generadas. Pulsa F6 para ejecutar.")
             self._show_success_detail()
+            self.notebook.select(self.mips_tab)
         else:
             self.total_card.set_value(f"{len(self.errors)} error(es)")
-            if lexical or syntactic:
+            if generation and not (lexical or syntactic or semantic):
+                self.status.configure(text="El TAC se generó, pero el backend no pudo traducirlo a MIPS (ver Diagnósticos).")
+            elif lexical or syntactic:
                 self.status.configure(
                     text=f"Análisis completado: {lexical} léxico(s), {syntactic} sintáctico(s). El análisis semántico se omite para evitar cascadas."
                 )
@@ -853,7 +989,8 @@ class CompiscriptApp(tk.Tk):
 
     def _filtered_errors(self) -> list[AnalysisError]:
         selected = self.filter_var.get()
-        mapping = {"Léxicos": "Léxico", "Sintácticos": "Sintáctico", "Semánticos": "Semántico"}
+        mapping = {"Léxicos": "Léxico", "Sintácticos": "Sintáctico", "Semánticos": "Semántico",
+                   "Generación": "Generación"}
         if selected in mapping:
             return [error for error in self.errors if error.error_type == mapping[selected]]
         return self.errors
@@ -886,7 +1023,7 @@ class CompiscriptApp(tk.Tk):
     def _clear_stale_tac(self) -> None:
         if self.analysis_result is not None and self.editor.get_content() != self.analysis_result.source:
             self._reset_analysis()
-            self.status.configure(text="Código modificado. Vuelve a analizar (F5) para generar TAC actualizado.")
+            self.status.configure(text="Código modificado. Vuelve a compilar (F5) para generar TAC y MIPS actualizados.")
 
     def _populate_tac(self) -> None:
         self._clear_tac_view()
@@ -919,6 +1056,233 @@ class CompiscriptApp(tk.Tk):
             except OSError as exc:
                 messagebox.showerror("No se pudo exportar", str(exc), parent=self)
 
+    # ================================================================== Proyecto 3
+    def _clear_mips_views(self) -> None:
+        if not hasattr(self, "mips_view"):
+            return
+        for view in (self.mips_view, self.frames_view, self.peephole_view):
+            self._set_text(view, "")
+        self.mips_count.configure(text="Sin MIPS")
+        self.frames_info.configure(text="")
+        self.peephole_info.configure(text="")
+        self._clear_run_views("Compila (F5) y ejecuta (F6) para ver la salida del programa.")
+
+    def _clear_run_views(self, message: str = "") -> None:
+        self._set_text(self.console_view, message)
+        self.run_info.configure(text="")
+        for item in self.activation_tree.get_children():
+            self.activation_tree.delete(item)
+        self.activation_info.configure(text="Sin ejecución")
+
+    def _populate_mips(self) -> None:
+        self._clear_mips_views()
+        result = self.analysis_result
+        mips = result.mips if result is not None else None
+        if mips is None:
+            reason = "No se genera MIPS si hay errores" if result is None or result.errors else "Sin MIPS"
+            self.mips_count.configure(text=reason)
+            self.mips_card.set_value("—")
+            return
+        asm = mips.asm
+        self._set_text(self.mips_view, asm)
+        self._highlight_asm()
+        count = mips.program.instruction_count()
+        report = mips.report
+        self.mips_card.set_value(str(count))
+        state = "optimizado" if mips.optimized else "sin optimizar"
+        self.mips_count.configure(text=f"{count} instrucciones ({state}) · {len(mips.program.functions)} unidades")
+        self._set_text(self.frames_view, mips.allocation_text() + "\n\n" + "REGISTROS DE ACTIVACIÓN\n\n" + mips.frames_text())
+        stats = mips.stats.get("asignador", {})
+        self.frames_info.configure(text=f"{stats.get('getreg', 0)} getReg · {stats.get('derrames', 0)} derrames")
+        if mips.optimized:
+            self._set_text(self.peephole_view, report.summary() + "\n\nDETALLE DE LAS TRANSFORMACIONES\n\n" + report.detail())
+            self.peephole_info.configure(text=f"{len(report.changes)} cambios · {report.rules_applied} reglas distintas")
+        else:
+            self._set_text(self.peephole_view, "La optimización por mirilla está desactivada. Actívala y vuelve a compilar.")
+            self.peephole_info.configure(text="Desactivada")
+
+    def _highlight_asm(self) -> None:
+        view = self.mips_view
+        view.configure(state="normal")
+        for number, line in enumerate(view.get("1.0", "end-1c").split("\n"), 1):
+            stripped = line.lstrip()
+            hash_at = line.find("#")
+            if stripped.startswith("#"):
+                view.tag_add("asm_comment", f"{number}.0", f"{number}.end")
+                continue
+            if stripped.startswith("."):
+                view.tag_add("asm_directive", f"{number}.0", f"{number}.end")
+            elif line and not line[0].isspace() and ":" in line:
+                view.tag_add("asm_label", f"{number}.0", f"{number}.{line.index(':') + 1}")
+            if hash_at > 0 and '"' not in line[:hash_at]:
+                view.tag_add("asm_comment", f"{number}.{hash_at}", f"{number}.end")
+        view.configure(state="disabled")
+
+    def _on_optimize_toggle(self) -> None:
+        self.analyzer.optimize_mips = bool(self.optimize_var.get())
+        if self.analysis_result is not None:
+            self.analyze()
+
+    def _current_mips(self):
+        """MIPS del código actual; compila de nuevo si el editor cambió."""
+        result = self.analysis_result
+        if result is None or result.source != self.editor.get_content():
+            self.analyze()
+            result = self.analysis_result
+        if result is None or result.mips is None:
+            messagebox.showwarning(
+                "Sin código MIPS",
+                "El programa tiene errores; corrígelos (pestaña Diagnósticos) antes de ejecutar.", parent=self)
+            return None
+        return result.mips
+
+    def run_program(self) -> None:
+        if self._running:
+            return
+        mips = self._current_mips()
+        if mips is None:
+            return
+        self._running = True
+        self.run_button.state(["disabled"])
+        self._clear_run_views("Ejecutando en el simulador MIPS integrado...\n")
+        self.notebook.select(self.run_tab)
+        self.status.configure(text="Ejecutando el programa MIPS...")
+        holder: dict = {}
+
+        def worker() -> None:
+            try:
+                holder["run"] = mips.run()
+            except Exception as exc:          # nunca debe ocurrir; se informa en la consola
+                holder["error"] = exc
+
+        thread = threading.Thread(target=worker, daemon=True)
+        thread.start()
+
+        def poll() -> None:
+            if thread.is_alive():
+                self.after(40, poll)
+                return
+            self._running = False
+            self.run_button.state(["!disabled"])
+            if "error" in holder:
+                self._set_text(self.console_view, f"Error interno del simulador: {holder['error']}")
+                return
+            self._show_run(holder["run"])
+        self.after(40, poll)
+
+    def _show_run(self, run) -> None:
+        view = self.console_view
+        view.configure(state="normal")
+        view.delete("1.0", "end")
+        view.insert("end", run.output)
+        if run.output and not run.output.endswith("\n"):
+            view.insert("end", "\n")
+        if run.error:
+            view.insert("end", f"\n✗ Error del simulador: {run.error}\n", "console_error")
+            outcome = "error"
+        elif run.exit_code:
+            view.insert("end", f"\n✗ El programa terminó con código {run.exit_code} (error no capturado).\n", "console_error")
+            outcome = f"código {run.exit_code}"
+        else:
+            view.insert("end", "\n✓ El programa terminó correctamente (código 0).\n", "console_ok")
+            outcome = "código 0"
+        view.insert("end", f"   {run.steps:,} instrucciones ejecutadas · {run.calls} llamadas · profundidad máxima "
+                           f"{run.max_depth} · pila máxima {run.max_stack_bytes} bytes · heap {run.heap_bytes} bytes\n",
+                    "console_note")
+        view.configure(state="disabled")
+        self.run_info.configure(text=f"{outcome} · {run.steps:,} instrucciones")
+        self._populate_activation_tree(run)
+        self.status.configure(text=f"Ejecución terminada ({outcome}). Revisa la pestaña Árbol de activación.")
+
+    def _populate_activation_tree(self, run) -> None:
+        tree = self.activation_tree
+        for item in tree.get_children():
+            tree.delete(item)
+        if run.tree is None:
+            return
+
+        def add(node, parent: str = "") -> None:
+            status = {"retornó": "retornó", "excepción": "excepción", "activa": "activa"}.get(node.status, node.status)
+            frame = f"{node.frame_size} B" if node.frame_size else ""
+            item = tree.insert(parent, "end", text=f"{node.name}({node.arguments})",
+                               values=(node.result, status, frame),
+                               open=not parent or len(node.children) <= 12)
+            for child in node.children:
+                add(child, item)
+        add(run.tree)
+        truncated = " (truncado)" if run.tree_truncated else ""
+        self.activation_info.configure(
+            text=f"{run.calls} activaciones · profundidad máxima {run.max_depth}{truncated}")
+
+    def compare_external(self) -> None:
+        mips = self._current_mips()
+        if mips is None:
+            return
+        from mips_external import available_simulators, run_external, same_output
+        simulators = available_simulators()
+        if not simulators:
+            messagebox.showinfo(
+                "Simuladores externos",
+                "No se encontró Java (para MARS en herramientas/Mars4_5.jar) ni el comando spim.\n"
+                "Exporta el .asm y ábrelo manualmente en MARS o QtSpim.", parent=self)
+            return
+        self.notebook.select(self.run_tab)
+        self.status.configure(text=f"Ejecutando en {', '.join(simulators)}...")
+        holder: dict = {}
+
+        def worker() -> None:
+            reference = mips.run()
+            holder["reference"] = reference
+            holder["runs"] = [run_external(name, mips.asm) for name in simulators]
+
+        thread = threading.Thread(target=worker, daemon=True)
+        thread.start()
+
+        def poll() -> None:
+            if thread.is_alive():
+                self.after(80, poll)
+                return
+            reference = holder["reference"]
+            self._show_run(reference)
+            view = self.console_view
+            view.configure(state="normal")
+            view.insert("end", "\nComparación con simuladores externos:\n", "console_note")
+            for run in holder["runs"]:
+                if run.error:
+                    view.insert("end", f"   {run.simulator}: {run.error}\n", "console_error")
+                elif same_output(run.output, reference.output):
+                    view.insert("end", f"   ✓ {run.simulator}: salida idéntica (código {run.returncode})\n", "console_ok")
+                else:
+                    view.insert("end", f"   ✗ {run.simulator}: salida distinta\n{run.output}\n", "console_error")
+            view.configure(state="disabled")
+            self.status.configure(text="Comparación con simuladores externos terminada.")
+        self.after(80, poll)
+
+    def export_asm(self) -> None:
+        result = self.analysis_result
+        if result is None or result.mips is None or self.editor.get_content() != result.source:
+            messagebox.showwarning("Sin código MIPS actualizado",
+                                   "Compila el código actual sin errores antes de exportar.", parent=self)
+            return
+        stem = self.current_file.stem if self.current_file else "programa"
+        path = filedialog.asksaveasfilename(parent=self, title="Exportar ensamblador MIPS",
+                                            initialfile=stem + ".asm", defaultextension=".asm",
+                                            filetypes=[("Ensamblador MIPS", "*.asm *.s"), ("Texto", "*.txt")])
+        if path:
+            try:
+                Path(path).write_text(result.mips.asm, encoding="latin-1", errors="replace")
+                self.status.configure(text=f"Ensamblador exportado: {path} (ábrelo en MARS o QtSpim)")
+            except OSError as exc:
+                messagebox.showerror("No se pudo exportar", str(exc), parent=self)
+
+    def open_mars(self) -> None:
+        from mips_external import open_in_mars_gui
+        if open_in_mars_gui() is None:
+            messagebox.showinfo("MARS no disponible",
+                                "Se necesita Java instalado y el archivo herramientas/Mars4_5.jar.", parent=self)
+            return
+        self.status.configure(text="MARS abierto: File → Open con el .asm exportado, F3 ensambla y F5 ejecuta.")
+
     def _snapshot_fonts(self) -> None:
         """Conserva tamaños iniciales de widgets Tk; zoom no altera jerarquías."""
         def walk(parent):
@@ -946,7 +1310,8 @@ class CompiscriptApp(tk.Tk):
         size = 9 + self.font_delta
         style.configure("Treeview", font=("Segoe UI", size), rowheight=22 + size)
         style.configure("Treeview.Heading", font=("Segoe UI", size, "bold"))
-        style.configure("TNotebook.Tab", font=("Segoe UI", size))
+        # Nueve pestañas: la letra de las pestañas crece menos que el resto para que quepan.
+        style.configure("TNotebook.Tab", font=("Segoe UI", 9 + min(self.font_delta, 1)), padding=(6, 4))
         style.configure("Primary.TButton", font=("Segoe UI", size, "bold"))
         style.configure("Secondary.TButton", font=("Segoe UI", size))
         style.configure("TCombobox", font=("Segoe UI", size))
@@ -1033,8 +1398,8 @@ class CompiscriptApp(tk.Tk):
         self.detail_description.configure(
             text="El lexer, parser y visitor semántico recorrieron el archivo completo sin detectar errores."
         )
-        self.detail_suggestion.configure(text="El archivo cumple las reglas léxicas, sintácticas y semánticas implementadas para Compiscript.")
-        self._set_detail_excerpt("✓ Análisis léxico correcto\n✓ Análisis sintáctico correcto\n✓ Análisis semántico correcto")
+        self.detail_suggestion.configure(text="Se generó el TAC y el ensamblador MIPS. Usa Ejecutar (F6) para correrlo en el simulador.")
+        self._set_detail_excerpt("✓ Análisis léxico, sintáctico y semántico correctos\n✓ Código intermedio (TAC)\n✓ Código MIPS optimizado por mirilla")
 
     def _set_detail_excerpt(self, text: str) -> None:
         self.detail_excerpt.configure(state="normal")
@@ -1052,16 +1417,18 @@ class CompiscriptApp(tk.Tk):
         self.lexical_card.set_value("0")
         self.syntactic_card.set_value("0")
         self.semantic_card.set_value("0")
+        self.mips_card.set_value("—")
         self.visible_count.configure(text="0 resultados")
         self.editor.show_error_lines([])
         if hasattr(self, "symbol_tree"):
             for item in self.symbol_tree.get_children(): self.symbol_tree.delete(item)
             self.symbol_count.configure(text="0 símbolos")
         self._clear_tac_view()
+        self._clear_mips_views()
         if hasattr(self, "parse_tree"):
             for item in self.parse_tree.get_children(): self.parse_tree.delete(item)
             self.tree_count.configure(text="0 nodos")
-        self.detail_title.configure(text="Selecciona Analizar para iniciar")
+        self.detail_title.configure(text="Selecciona Compilar (F5) para iniciar")
         self.detail_description.configure(
             text="Los errores léxicos, sintácticos y semánticos aparecerán con línea, columna, regla y sugerencia."
         )
@@ -1074,18 +1441,26 @@ class CompiscriptApp(tk.Tk):
         tests_dir = root / "pruebas_semanticas"
         manifest_path = tests_dir / "manifest.json"
         try:
-            entries = json.loads(manifest_path.read_text(encoding="utf-8"))
+            entries = []
+            mips_entries = json.loads((root / "pruebas_mips" / "manifest.json").read_text(encoding="utf-8"))
+            for item in mips_entries:
+                entries.append({"archivo": item["archivo"], "regla": "P3 · " + item["categoria"],
+                                "esperado": item["esperado"], "descripcion": item["descripcion"],
+                                "dir": "pruebas_mips"})
+            for item in json.loads(manifest_path.read_text(encoding="utf-8")):
+                item["dir"] = "pruebas_semanticas"
+                entries.append(item)
             tac_entries = json.loads((root / "pruebas_tac" / "manifest.json").read_text(encoding="utf-8"))
             for item in tac_entries:
                 entries.append({"archivo": item["archivo"], "regla": item["categoria"],
                                 "esperado": "VÁLIDO" if item["valido"] else "ERROR",
-                                "descripcion": "TAC Proyecto 2", "tac": True})
+                                "descripcion": "TAC Proyecto 2", "dir": "pruebas_tac"})
         except (OSError, json.JSONDecodeError) as exc:
             messagebox.showerror("No se pudieron cargar las pruebas", str(exc), parent=self)
             return
 
         window = tk.Toplevel(self)
-        window.title("Batería de pruebas Compiscript · Proyectos 1 y 2")
+        window.title("Batería de pruebas Compiscript · Proyectos 1, 2 y 3")
         window.geometry("1040x560")
         window.minsize(820, 420)
         window.configure(bg=BG)
@@ -1093,7 +1468,7 @@ class CompiscriptApp(tk.Tk):
 
         header = tk.Frame(window, bg=NAVY)
         header.pack(fill="x")
-        tk.Label(header, text="Casos exitosos y fallidos · semántica y TAC", bg=NAVY, fg="white", font=("Segoe UI", 14, "bold"), padx=18, pady=14).pack(anchor="w")
+        tk.Label(header, text="Casos exitosos y fallidos · MIPS, semántica y TAC", bg=NAVY, fg="white", font=("Segoe UI", 14, "bold"), padx=18, pady=14).pack(anchor="w")
 
         body = tk.Frame(window, bg=BG)
         body.pack(fill="both", expand=True, padx=16, pady=16)
@@ -1113,7 +1488,7 @@ class CompiscriptApp(tk.Tk):
 
         footer = tk.Frame(body, bg=BG)
         footer.pack(fill="x", pady=(12, 0))
-        tk.Label(footer, text="Doble clic para cargar una prueba en el editor; luego F5 para ejecutar el pipeline completo.", bg=BG, fg=MUTED, font=("Segoe UI", 9)).pack(side="left")
+        tk.Label(footer, text="Doble clic para cargar una prueba; luego F5 compila y F6 ejecuta el MIPS.", bg=BG, fg=MUTED, font=("Segoe UI", 9)).pack(side="left")
 
         def load_selected(_event=None):
             selection = tree.selection()
@@ -1123,7 +1498,7 @@ class CompiscriptApp(tk.Tk):
             if not values:
                 return
             entry = next((e for e in entries if e["archivo"] == values[0]), None)
-            path = (root / "pruebas_tac" if entry and entry.get("tac") else tests_dir) / values[0]
+            path = root / (entry["dir"] if entry else "pruebas_semanticas") / values[0]
             try:
                 content = self._read_file(path)
             except OSError as exc:

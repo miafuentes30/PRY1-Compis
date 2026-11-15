@@ -1,30 +1,44 @@
-﻿# Guía corta de demostración y entrega — Proyecto 2
+﻿# Guion de demostración — Proyecto 3 (generación de código MIPS)
 
-## Preparación
+Duración sugerida: 15 minutos. Todos los archivos están en `pruebas_mips/` y se pueden cargar desde el botón **Pruebas** del IDE (doble clic → F5 → F6).
 
-1. Abre `iniciar_windows.bat` en Windows o `./iniciar_linux_mac.sh` en macOS/Linux. También puedes utilizar `python iniciar.py`.
-2. Abre `pruebas_tac/17_clases.cps` desde el IDE y pulsa **F5**. Observa `class`, inicialización de campos, `new`, constructor, métodos y la tabla de símbolos con sus offsets.
-3. Abre `pruebas_tac/16_recursion.cps` y pulsa F5. Explica la sección `func`, `param`, `call`, `return` y los registros de activación por invocación.
-4. Abre `pruebas_tac/12_foreach.cps` o `13_switch_entero.cps` y enseña etiquetas, saltos, `break`/`continue` y traducción de condiciones.
-5. Abre `pruebas_tac/21_operacion_reciclaje.cps` y muestra los nombres temporales repetidos y el contador de reutilizaciones.
-6. Abre `pruebas_tac/25_errores_multiples.cps` y demuestra que aparecen **tres diagnósticos** y que la pestaña TAC queda **vacía**.
-7. Abre `pruebas_regresion/01_for_sin_condicion.cps` y `05_try_anidados.cps` para mostrar los casos recuperados. Después, `06_expresion_con_mutacion.cps` para mostrar una copia temporal que conserva el valor del primer operando. Pulsa **A+**, **A−**, cambia el tema y usa **Exportar .tac** con un caso correcto.
-8. Ejecuta `verificar_windows.bat` o `python verificar_proyecto.py` y muestra el resumen de **138 verificaciones automáticas**.
+## Preparación (antes de la presentación)
 
-## Documentación
+1. `python iniciar.py` (o `iniciar_windows.bat`) y verificar que el IDE abra.
+2. `python verificar_proyecto.py` → debe terminar con **197/197**.
+3. Si la máquina tiene Java: `python verificar_mips.py --externo` → los programas válidos dan la misma salida en MARS y SPIM.
 
-- `README.md`: instalación, manejo del IDE, comandos, pruebas y archivos.
-- `DOCUMENTACION_TAC.md`: especificación del TAC e instrucciones, ejemplos y supuestos.
-- `DOCUMENTACION_ARQUITECTURA.md`: diseño del compilador, etapas, tabla de símbolos y frames.
-- `verificar_proyecto.py`: batería automatizada reproducible de semántica, recuperación, TAC, tabla de símbolos y regresiones.
+## Recorrido por la rúbrica
 
-9. Si la máquina tiene entorno gráfico disponible, `python verificar_interfaz.py` ejecuta **11 comprobaciones** de la GUI.
+| Paso | Archivo | Qué mostrar | Rúbrica |
+| --- | --- | --- | --- |
+| 1 | `00_programa_ejemplo.cps` | F5 → pestaña **MIPS** (vtables, cadenas, prólogo de `main`). F6 → **Ejecución**. **Comparar MARS/SPIM** → «salida idéntica». **Exportar .asm** y abrirlo en MARS (**Abrir MARS**, F3, F5). | Uso de simulador (1) |
+| 2 | `19_arbol_activacion.cps` | F6 → **Activación**: árbol de `fib(4)` con argumentos y retornos. | Árboles de activación (5) |
+| 3 | `13_recursion.cps` | **MIPS**: prólogo/epílogo de `fn_factorial` (reserva del marco, `$ra`, `$fp`, `$s0` preservado). **Registros**: marco de cada función. **Activación**: profundidad 11 en Ackermann/factorial. | Registros de activación (5), recursividad (2) |
+| 4 | `12_funciones_parametros.cps` | Función `seis` con 6 parámetros: los dos últimos viajan por la pila (`lw $s4, 0($fp)`), los cuatro primeros en `$a0`–`$a3`. | Funciones y parámetros (2) |
+| 5 | `14_closures.cps` | Funciones anidadas: enlace de acceso en `-12($fp)` y doble salto `lw $t8, -12($t8)` en `nivel3`. | Registros de activación (5) |
+| 6 | `18_presion_registros.cps` | **Registros**: 8 derrames, 8 `$t` ocupados, 26 reutilizaciones, temporales guardados antes de llamadas. En el `.asm` sin optimizar (desmarcar la casilla) buscar «derrame (spill)». | Selección de registros (4) |
+| 7 | `01`–`05` | Variables/constantes, aritmética (división truncada, desbordamiento de 32 bits), lógica con cortocircuito (contador de llamadas), cadenas y arreglos 1D/2D con verificación de límites. | 1 + 1 + 1 + 1 |
+| 8 | `06`–`11` | if/else, while, do-while, for, foreach, switch (caída, break, default, string) y ternario. | Control (3) |
+| 9 | `15_clases_objetos.cps` | Objetos con constructor, inicializadores, `this`, miembros sin `this`, objetos en arreglos. | Clases y objetos (2) |
+| 10 | `16_herencia.cps` | Tablas `vt_Animal` / `vt_Cachorro` (mismo índice para `hablar`), despacho con `jalr`, polimorfismo (`mascota: Animal`). En **Activación**: `Animal.presentar` llama a `Cachorro.hablar`. | Herencia (2) |
+| 11 | `17_try_catch.cps` | Índice fuera de rango, división entre cero, nulo, error dentro de una recursión (en **Activación** las llamadas aparecen «terminada por una excepción»), try anidados y break/continue/return dentro de try. | try/catch (2) |
+| 12 | `20_error_no_capturado.cps` | Caso fallido: mensaje y **código 1** (también en MARS/SPIM). | try/catch (2) |
+| 13 | cualquier programa | Pestaña **Mirilla**: tabla de las 11 transformaciones y el detalle antes/después. Desmarcar la casilla para comparar el número de instrucciones. | Mirilla (3) |
+| 14 | `23_*`, `24_*`, `25_*` | Casos fallidos de compilación: diagnósticos semánticos/sintácticos sin MIPS; `MIPS_UNSUPPORTED` del backend. | Batería de pruebas |
+| 15 | consola | `python verificar_proyecto.py` y `python compilar_cli.py pruebas_mips/19_arbol_activacion.cps -e --arbol --mars --spim`. | Batería de pruebas |
 
-## Publicación en GitHub
+## Documentación entregada
 
-La especificación del proyecto exige un repositorio y participación **real** y diferenciable de los integrantes en los commits. El ZIP no publica automáticamente código ni inventa el historial. Creen o usen su repositorio, revisen los cambios y hagan commits de las contribuciones que haya realizado cada persona. Documenten las pruebas y preparen una demostración desde la interfaz, no solo desde consola.
+* `README.md`: instalación, uso del IDE y de la consola, simuladores, pruebas.
+* `DOCUMENTACION_ARQUITECTURA.md`: arquitectura de todo el compilador.
+* `DOCUMENTACION_MIPS.md`: backend MIPS (marcos, getReg, traducciones, runtime, try/catch, mirilla, simulador, trazabilidad con la rúbrica).
+* `DOCUMENTACION_TAC.md`: especificación del código intermedio.
+* `GUIA_GITHUB.md`: publicación en una rama nueva con commits de cada integrante.
 
-## Alcance
+## Preguntas probables y dónde está la respuesta
 
-El programa es un **compilador frontal con TAC abstracto**, no una máquina virtual. No ejecuta Compiscript, no produce assembler ni código objeto y no busca reportar todas las cascadas de errores provocadas por una entrada inválida.
-
+* *¿Cómo decide getReg qué registro derramar?* → `mips_regalloc.py`, método `getreg()`: primero víctimas sin costo (valor muerto o ya en memoria), luego la de siguiente uso más lejano.
+* *¿Qué pasa con los temporales en una llamada?* → `save_before_call()`: los `$t` vivos se guardan en el marco; las variables en `$s` no, porque el llamado las preserva.
+* *¿Cómo llega una excepción al catch desde otra función?* → `rt_throw` en `mips_runtime.py` restaura `$sp`/`$fp` del registro del manejador; sección 7 de `DOCUMENTACION_MIPS.md`.
+* *¿Cómo se sabe que el simulador integrado es correcto?* → `verificar_mips.py --externo` compara cada programa con MARS y SPIM reales.

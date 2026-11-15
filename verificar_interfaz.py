@@ -71,11 +71,69 @@ def main():
             assert alert.called and app.analysis_result is None
             assert not app.tac_view.get('1.0', 'end').strip()
             checks += 1
+            # ---------------- Proyecto 3: MIPS, ejecución y árbol de activación ----------------
+            app.editor.set_content(
+                'function fact(n: integer): integer { if (n <= 1) { return 1; } return n * fact(n - 1); }\n'
+                'print("fact(5) = " + fact(5));\n')
+            app.analyze()
+            asm = app.mips_view.get('1.0', 'end')
+            assert not app.errors and 'fn_fact:' in asm and 'jal    fn_fact' in asm
+            assert app.mips_card.value_label.cget('text').isdigit()
+            checks += 1
+            app.run_program()
+            for _ in range(200):
+                app.update()
+                if not app._running:
+                    break
+                app.after(20)
+            console = app.console_view.get('1.0', 'end')
+            assert 'fact(5) = 120' in console and 'código 0' in console
+            checks += 1
+            roots = app.activation_tree.get_children()
+            assert len(roots) == 1
+            first = app.activation_tree.get_children(roots[0])[0]
+            assert app.activation_tree.item(first, 'text') == 'fact(n=5)'
+            assert app.activation_tree.item(first, 'values')[0] == '120'
+            checks += 1
+            assert '$s0' in app.frames_view.get('1.0', 'end') and 'REGISTROS DE ACTIVACIÓN' in app.frames_view.get('1.0', 'end')
+            assert 'OPTIMIZACIÓN POR MIRILLA' in app.peephole_view.get('1.0', 'end')
+            checks += 1
+            asm_out = Path(work) / 'programa.asm'
+            with patch('main.filedialog.asksaveasfilename', return_value=str(asm_out)):
+                app.export_asm()
+            assert asm_out.is_file() and '.globl main' in asm_out.read_text(encoding='latin-1')
+            checks += 1
+            app.optimize_var.set(False)
+            app._on_optimize_toggle()
+            assert app.analysis_result.mips is not None and not app.analysis_result.mips.optimized
+            assert 'desactivada' in app.peephole_view.get('1.0', 'end')
+            app.optimize_var.set(True)
+            app._on_optimize_toggle()
+            checks += 1
+            # Error no capturado en tiempo de ejecución: se informa en la consola.
+            app.editor.set_content('let a: integer[] = [1];\nprint(a[4]);\n')
+            app.run_program()
+            for _ in range(200):
+                app.update()
+                if not app._running:
+                    break
+                app.after(20)
+            console = app.console_view.get('1.0', 'end')
+            assert 'no capturado' in console and 'código 1' in console
+            checks += 1
+            # Un programa con errores no produce MIPS ni se ejecuta.
+            app.editor.set_content('let x: integer = "a";')
+            with patch('main.messagebox.showwarning') as warning:
+                app.run_program()
+            assert warning.called and app.analysis_result.mips is None
+            assert not app.mips_view.get('1.0', 'end').strip()
+            checks += 1
             app.clear_all()
             assert not app.editor.get_content().strip()
             assert not app.tac_view.get('1.0','end').strip()
+            assert not app.mips_view.get('1.0','end').strip()
             checks += 1
-        print(f'INTERFAZ REAL: {checks}/11 verificaciones superadas.')
+        print(f'INTERFAZ REAL: {checks}/19 verificaciones superadas.')
         return 0
     finally:
         app.destroy()

@@ -1,10 +1,12 @@
-﻿# Compiscript IDE â€” Proyecto 2: generaciÃ³n de cÃ³digo intermedio (TAC)
+﻿# Compiscript IDE — Proyecto 3: generación de código MIPS
 
-Entrega construida sobre **PRY1-Compis-main**. Incluye cÃ³digo fuente, archivos generados de ANTLR, un editor Tkinter, anÃ¡lisis lÃ©xico/sintÃ¡ctico/semÃ¡ntico, tabla de sÃ­mbolos con registros de activaciÃ³n, generador de TAC, reciclaje de temporales, exportaciÃ³n y pruebas de Ã©xito/fallo. **No ejecuta Compiscript ni produce cÃ³digo objeto.**
+Compilador completo de **Compiscript** construido sobre los Proyectos 1 y 2 (mismo repositorio, rama nueva): análisis léxico, sintáctico y semántico con ANTLR, código intermedio de tres direcciones (TAC) y, en esta fase, **generación de ensamblador MIPS** con registros de activación, asignación de registros (`getReg`), optimización por mirilla y ejecución en un simulador. El ensamblador generado corre sin cambios en **MARS 4.5** (incluido), **SPIM** y **QtSpim**.
 
-## Inicio rÃ¡pido
+## Inicio rápido
 
-**Windows (PowerShell o CMD):**
+Requisitos: **Python 3.10+** con Tkinter. Java 8+ solo si quieres usar MARS.
+
+**Windows:** doble clic en `iniciar_windows.bat` o:
 
 ```powershell
 python iniciar.py
@@ -13,80 +15,89 @@ python iniciar.py
 **macOS / Linux:**
 
 ```bash
-python3 iniciar.py
+python3 iniciar.py          # o ./iniciar_linux_mac.sh
 ```
 
-`iniciar.py` prepara `antlr4-python3-runtime==4.9.3` si hace falta. Como alternativa, para instalarlo explÃ­citamente:
+`iniciar.py` instala `antlr4-python3-runtime==4.9.3` si hace falta y abre el IDE. También puedes hacerlo manualmente:
 
 ```bash
 python -m pip install -r requirements.txt
 python main.py
 ```
 
-Se requiere **Python 3.10+**, **Tkinter** y la dependencia ANTLR listada en `requirements.txt`. En Ubuntu/Debian, si falta Tkinter: `sudo apt install python3-tk`. Incluimos `generated/` para que **no sea necesario Java durante la ejecuciÃ³n normal**. Java/ANTLR se necesitan Ãºnicamente para regenerar el parser tras editar `Compiscript.g4` (ver `bootstrap.py`).
+En Ubuntu/Debian, si falta Tkinter: `sudo apt install python3-tk`. Los archivos de ANTLR ya generados están en `generated/`, por lo que no se necesita Java para compilar.
 
-## CÃ³mo usar el IDE
+## Cómo usar el IDE
 
-1. Abre `iniciar.py` o ejecuta `python main.py`. Haz clic en **Abrir archivo .cps** o escribe en el editor.
-2. Pulsa **Analizar (F5)**. Los errores aparecen en Â«DiagnÃ³sticosÂ», con detalles, lÃ­nea y sugerencia.
-3. Si no existen errores lÃ©xicos, sintÃ¡cticos ni semÃ¡nticos, se abre la pestaÃ±a **CÃ³digo intermedio (TAC)**. Usa **Exportar .tac** para guardar las instrucciones numeradas. **Si hay errores, la pestaÃ±a se limpia y no se produce TAC.**
-4. La pestaÃ±a **Tabla de sÃ­mbolos** muestra el almacenamiento, offset y registro de activaciÃ³n; Â«Ãrbol sintÃ¡cticoÂ» presenta el Ã¡rbol de ANTLR.
-5. La letra del editor y los resultados es mayor que en el Proyecto 1. Cambia el tamaÃ±o desde **A+ / Aâˆ’** o **Ctrl + / Ctrl âˆ’**. Sobre el editor tambiÃ©n puedes usar **Ctrl + rueda del ratÃ³n**. El modo claro/oscuro se conserva.
-6. **Pruebas P1/P2** permite abrir directamente cualquiera de los archivos de prueba.
+1. Abre un `.cps` (**Abrir archivo .cps** o `Ctrl+O`), escribe en el editor o pulsa **Pruebas** y elige uno de los programas de prueba.
+2. **Compilar (F5)**: ejecuta todas las fases. Si hay errores aparecen en **Diagnósticos** (con línea, columna y sugerencia) y no se genera TAC ni MIPS.
+3. Si compila, la pestaña **MIPS** muestra el ensamblador. **Exportar .asm** lo guarda para abrirlo en MARS o QtSpim; **Abrir MARS** abre el simulador incluido.
+4. **Ejecutar (F6)**: corre el programa en el simulador integrado. La pestaña **Ejecución** muestra la salida, el código de salida y estadísticas; **Comparar MARS/SPIM** ejecuta el mismo `.asm` en los simuladores reales y confirma que la salida es idéntica.
+5. **Activación**: árbol de activación de la última ejecución (cada llamada con sus argumentos y su valor de retorno).
+6. **Registros**: estadísticas de `getReg()` (derrames, reutilizaciones, guardados antes de llamadas), registros `$s` asignados y el registro de activación de cada función.
+7. **Mirilla**: transformaciones aplicadas, con el código antes y después. La casilla **Optimización por mirilla** permite compilar sin optimizar para comparar.
+8. **TAC**, **Símbolos** y **Árbol ANTLR** conservan las vistas de los proyectos anteriores.
 
-Se pueden usar `Ctrl+O` para abrir, `Ctrl+S` para guardar, `Ctrl+MayÃºs+S` para Guardar como y `Ctrl+T` para alternar los temas.
+Atajos: `F5` compilar, `F6` ejecutar, `Ctrl+S` guardar, `Ctrl+T` modo oscuro, `Ctrl +/-` tamaño de letra.
 
-## Ejecutar todas las pruebas
-
-```bash
-python verificar_proyecto.py
-```
-
-Se verifican **57** casos semanticos, **3** de recuperacion, **4** operaciones basicas de tabla de simbolos, **30** casos de TAC y **4** invariantes de TAC/almacenamiento, mas **40** regresiones estructurales: **138 verificaciones automatizadas** en total. Las pruebas negativas tambien verifican que no se genera ninguna representacion intermedia. Los casos estan en `pruebas_semanticas/`, `pruebas_recuperacion/`, `pruebas_tac/` y `pruebas_regresion/`. La interfaz real se verifica aparte con `python verificar_interfaz.py` (11 controles; en Linux sin pantalla puedes usar `xvfb-run -a python verificar_interfaz.py`).
-
-Para compilar un archivo desde consola **sin ejecutarlo** (funciÃ³n adicional; no sustituye al IDE):
+## Compilar desde la consola
 
 ```bash
-python compilar_cli.py pruebas_tac/16_recursion.cps --salida factorial.tac
+python compilar_cli.py pruebas_mips/13_recursion.cps --asm recursion.asm        # genera MIPS
+python compilar_cli.py pruebas_mips/19_arbol_activacion.cps --ejecutar --arbol  # ejecuta y muestra el árbol
+python compilar_cli.py pruebas_mips/16_herencia.cps --ejecutar --mars --spim    # compara con MARS y SPIM
+python compilar_cli.py pruebas_mips/18_presion_registros.cps --reporte          # getReg, marcos y mirilla
+python compilar_cli.py programa.cps --salida programa.tac                        # solo TAC (Proyecto 2)
 ```
 
-Si existe algÃºn error, muestra diagnÃ³sticos, sale con cÃ³digo distinto de cero y **no crea el archivo de salida**.
+`--sin-optimizar` desactiva la mirilla. Con errores, se muestran los diagnósticos, el código de salida es distinto de cero y no se crea ningún archivo.
 
-## Archivos importantes
+## Ejecutar el `.asm` en un simulador MIPS
+
+* **MARS 4.5** (incluido): `java -jar herramientas/Mars4_5.jar nc programa.asm` en consola, o `java -jar herramientas/Mars4_5.jar` para la interfaz: *File → Open*, *Run → Assemble* (F3), *Run → Go* (F5).
+* **SPIM**: `spim -file programa.asm`.
+* **QtSpim**: *File → Reinitialize and Load File*, luego *Run* (F5).
+
+## Pruebas
+
+```bash
+python verificar_proyecto.py             # 197 verificaciones (P1 + P2 + P3)
+python verificar_mips.py                 # solo P3: 26 programas + 29 pruebas unitarias
+python verificar_mips.py --externo       # además compara cada programa con MARS y SPIM
+python verificar_interfaz.py             # 19 comprobaciones del IDE (Linux sin pantalla: xvfb-run -a ...)
+```
+
+En Windows, `verificar_windows.bat` ejecuta la batería completa.
+
+`pruebas_mips/` contiene casos exitosos y fallidos para cada punto de la rúbrica (variables, aritmética, lógica, arreglos, control de flujo, funciones, recursión, clases, herencia, try/catch, presión de registros, árbol de activación, errores en tiempo de ejecución y de compilación) con su salida esperada en `manifest.json`. Se conservan `pruebas_semanticas/`, `pruebas_recuperacion/`, `pruebas_tac/` y `pruebas_regresion/` de las fases anteriores.
+
+## Archivos principales
 
 | Archivo | Responsabilidad |
 | --- | --- |
-| `Compiscript.g4`, `generated/` | GramÃ¡tica y lexer/parser/Visitor generados por ANTLR |
-| `error_listener.py` | DiagnÃ³sticos y recuperaciÃ³n con mensajes en espaÃ±ol |
-| `semantic_analyzer.py` | Reglas semÃ¡nticas, Ã¡mbitos y vÃ­nculo de nodos con sus Ã¡mbitos |
-| `symbol_table.py` | SÃ­mbolos, almacenamiento relativo, layout de campos y frames |
-| `tac_ir.py` | Instrucciones TAC estructuradas y administrador de temporales |
-| `tac_generator.py` | Visitor que transforma el Ã¡rbol de ANTLR en TAC |
-| `analyzer.py` | Pipeline que **bloquea** el TAC si hay errores |
-| `main.py` | IDE con editor, pestaÃ±as, zoom y exportaciÃ³n |
-| `verificar_proyecto.py` / `verificar_regresiones.py` | Suite automatizada de 138 verificaciones (incluye 40 regresiones estructurales) |
-| `DOCUMENTACION_TAC.md` | DiseÃ±o detallado, convenciÃ³n de instrucciones y supuestos |
-| `DOCUMENTACION_ARQUITECTURA.md` | Arquitectura, etapas y decisiones de diseÃ±o |
+| `main.py` | IDE (editor, diagnósticos, TAC, MIPS, ejecución, activación, registros, mirilla) |
+| `compilar_cli.py` | Compilador de consola |
+| `analyzer.py` | Pipeline completo: léxico → sintáctico → semántico → TAC → MIPS |
+| `semantic_analyzer.py`, `symbol_table.py` | Análisis semántico y tabla de símbolos |
+| `tac_ir.py`, `tac_generator.py` | Código intermedio |
+| `mips_analysis.py` | Bloques básicos, flujo de control y variables vivas |
+| `mips_frames.py` | Registros de activación, enlaces de acceso, objetos y vtables |
+| `mips_regalloc.py` | `getReg()` y descriptores de registros |
+| `mips_codegen.py` | Traducción TAC → MIPS, secuencias de llamada y retorno |
+| `mips_runtime.py` | Biblioteca de tiempo de ejecución en MIPS |
+| `mips_peephole.py` | Optimización por mirilla |
+| `mips_simulator.py`, `mips_external.py` | Simulador integrado; MARS y SPIM |
+| `herramientas/Mars4_5.jar` | Simulador MARS 4.5 (licencia MIT) |
+| `DOCUMENTACION_ARQUITECTURA.md` | Arquitectura del compilador |
+| `DOCUMENTACION_MIPS.md` | Diseño del backend MIPS |
+| `DOCUMENTACION_TAC.md` | Especificación del TAC |
+| `ENTREGA_Y_DEMOSTRACION.md` | Guion de demostración |
+| `GUIA_GITHUB.md` | Cómo subir esta fase en una rama nueva con commits de cada integrante |
 
-## Alcance y diferencias con el Proyecto 1
+## Cambios respecto del Proyecto 2
 
-- Se conserva ANTLR 4.9.3 y el proyecto anterior; se aÃ±ade generaciÃ³n de cÃ³digo intermedio y almacenamiento abstracto, **no** un intÃ©rprete ni un backend.
-- El modo predeterminado usa la gramática oficial de Compiscript: tipos primitivos `integer`, `boolean` y `string`; no se acepta `float` como extensión.
-- `const` requiere inicializador en la gramática (`const id ... = expresión;`); si falta, se reporta como error sintáctico y no se produce TAC.
-- Se corrigiÃ³ el anÃ¡lisis de `switch` para admitir discriminantes escalares, como `integer`, segÃºn el ejemplo del README pÃºblico, y permitir `break` dentro de `switch`. La prueba negativa antigua `30_condicion_switch_error.cps` ahora utiliza un arreglo, que sÃ­ debe ser rechazado.
-- La documentacion historica del Proyecto 1 se conserva para consulta en `DOCUMENTACION_ARQUITECTURA_PROYECTO1.md`; el README vigente es este.
-
-## Correcciones verificadas respecto de la versiÃ³n anterior
-
-- `for` con condiciÃ³n ausente: el semÃ¡ntico y el Visitor TAC separan la condiciÃ³n y el incremento por la posiciÃ³n real de los puntos y coma, no por la longitud de `ctx.expression()`.
-- `return`, `break` y `continue` dentro de `try`: la traducciÃ³n retira solo los manejadores cuyo alcance realmente termina; no retira el del `try` externo cuando el salto permanece dentro de Ã©l.
-- EvaluaciÃ³n con efectos laterales: una variable o referencia evaluada antes de una operaciÃ³n/llamada/Ã­ndice se copia a un temporal antes de evaluar operandos posteriores que podrÃ­an modificarla.
-- Se evalÃºan los argumentos de `new Clase(...)` antes de los inicializadores de campos y de la invocaciÃ³n al constructor, para respetar los efectos laterales.
-- El IDE invalida el TAC anterior al editar el cÃ³digo, al iniciar una nueva compilaciÃ³n o ante un fallo inesperado del compilador; **no puede exportarse TAC obsoleto**.
-- `pruebas_regresion/` incluye 11 `.cps` adicionales que se pueden abrir desde "Abrir archivo .cps" y `verificar_regresiones.py` comprueba invariantes estructurales del TAC y del analisis.
-
-**Alcance de la verificaciÃ³n:** pruebas estÃ¡ticas y del IDE en Linux bajo pantalla virtual. No se ejecutan programas Compiscript (prohibido por el proyecto). La rÃºbrica y pruebas privadas de la cÃ¡tedra, el funcionamiento en cada Windows/macOS y el historial real de GitHub no pueden certificarse desde esta entrega.
-
-## Entrega
-
-Los requisitos oficiales piden entregar un **repositorio GitHub y commits verificables de cada integrante**. Este ZIP incluye la base tÃ©cnica y la documentaciÃ³n; cada integrante debe revisar, acreditar y subir sus propias contribuciones reales. No se incluyen commits fabricados ni se ha publicado el repositorio automÃ¡ticamente.
+* Nuevo backend MIPS completo, simulador integrado, MARS incluido, pestañas y botones nuevos en el IDE y opciones nuevas en la consola.
+* `string + integer` y `string + boolean` concatenan (lo usa el programa de ejemplo oficial); una instancia derivada se acepta donde se espera la clase base (polimorfismo). Ambas reglas tienen pruebas positivas y negativas.
+* El TAC conserva los tipos estáticos de cada instrucción; su forma textual no cambió.
+* Los miembros de clase usados sin `this.` dentro de un método ahora se traducen correctamente.
+* Se corrigió la codificación de los documentos de la fase anterior.
