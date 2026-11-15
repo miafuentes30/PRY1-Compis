@@ -11,6 +11,9 @@ Servicios del sistema usados (compatibles con MARS, SPIM y QtSpim):
 """
 from __future__ import annotations
 
+import re
+from dataclasses import dataclass
+
 # Códigos de clase de valor para rt_print_any / rt_print_value.
 KIND_INT, KIND_BOOL, KIND_STRING, KIND_OBJECT, KIND_DYNAMIC = 0, 1, 2, 3, 4
 
@@ -38,7 +41,7 @@ rt_m_div:       .asciiz "division entre cero"
 rt_m_uncaught:  .asciiz "Error en tiempo de ejecucion no capturado: "
 """
 
-RUNTIME_TEXT = r"""
+_RUNTIME_SOURCE = r"""
 # =====================================================================
 # Biblioteca de runtime de Compiscript
 # Argumentos en $a0-$a3, resultado en $v0.
@@ -414,13 +417,101 @@ rt_uncaught:
 """
 
 
-def runtime_text_lines() -> list[str]:
-    return RUNTIME_TEXT.strip("\n").split("\n")
+_LABEL = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*):")
+_SYMBOL = re.compile(r"(?<![$A-Za-z0-9_])([A-Za-z_][A-Za-z0-9_]*)")
 
 
-def runtime_word_lines() -> list[str]:
-    return RUNTIME_WORDS.strip("\n").split("\n")
+def _split_runtime_blocks(source: str) -> dict[str, list[str]]:
+    """Divide el runtime en bloques encabezados por sus rutinas de primer nivel."""
+    blocks = {label: [] for label in RUNTIME_LABELS}
+    current: str | None = None
+    pending: list[str] = []
+    for line in source.strip("\n").split("\n"):
+        match = _LABEL.match(line)
+        if match and match.group(1) in blocks:
+            current = match.group(1)
+            blocks[current].extend(pending)
+            pending = []
+            blocks[current].append(line)
+        elif current is None:
+            continue
+        elif not line.strip() or line.lstrip().startswith("#"):
+            pending.append(line)
+        else:
+            blocks[current].extend(pending)
+            pending = []
+            blocks[current].append(line)
+    return blocks
 
 
-def runtime_string_lines() -> list[str]:
-    return RUNTIME_STRINGS.strip("\n").split("\n")
+def _labels_by_block(blocks: dict[str, list[str]]) -> dict[str, str]:
+    owners: dict[str, str] = {}
+    for block, lines in blocks.items():
+        for line in lines:
+            match = _LABEL.match(line)
+            if match:
+                owners[match.group(1)] = block
+    return owners
+
+
+def _references(source: str) -> set[str]:
+    """Extrae símbolos usados como operandos de instrucciones MIPS."""
+    references: set[str] = set()
+    for raw in source.splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if not line or line.startswith(".") or _LABEL.fullmatch(line):
+            continue
+        _, separator, operands = line.partition(" ")
+        if separator:
+            references.update(_SYMBOL.findall(operands))
+    return references
+
+
+def _data_entries(source: str) -> dict[str, str]:
+    entries: dict[str, str] = {}
+    for line in source.strip("\n").split("\n"):
+        match = _LABEL.match(line)
+        if match:
+            entries[match.group(1)] = line
+    return entries
+
+
+RUNTIME_BLOCKS = _split_runtime_blocks(_RUNTIME_SOURCE)
+_RUNTIME_LABEL_OWNERS = _labels_by_block(RUNTIME_BLOCKS)
+_RUNTIME_WORD_ENTRIES = _data_entries(RUNTIME_WORDS)
+_RUNTIME_STRING_ENTRIES = _data_entries(RUNTIME_STRINGS)
+
+
+@dataclass(frozen=True)
+class RuntimeSelection:
+    text: list[str]
+    words: list[str]
+    strings: list[str]
+
+
+def select_runtime(program_text: str) -> RuntimeSelection:
+    """Selecciona transitivamente las rutinas y datos referenciados por ``program_text``."""
+    pending = set(_references(program_text))
+    selected: set[str] = set()
+    while pending:
+        reference = pending.pop()
+        block = _RUNTIME_LABEL_OWNERS.get(reference)
+        if block is None or block in selected:
+            continue
+        selected.add(block)
+        pending.update(_references("\n".join(RUNTIME_BLOCKS[block])))
+
+    runtime_lines = ["# Biblioteca de runtime"]
+    selected_source: list[str] = []
+    for block in RUNTIME_LABELS:
+        if block not in selected:
+            continue
+        lines = RUNTIME_BLOCKS[block]
+        runtime_lines.append("")
+        runtime_lines.extend(lines)
+        selected_source.extend(lines)
+
+    data_references = _references(program_text + "\n" + "\n".join(selected_source))
+    words = [line for label, line in _RUNTIME_WORD_ENTRIES.items() if label in data_references]
+    strings = [line for label, line in _RUNTIME_STRING_ENTRIES.items() if label in data_references]
+    return RuntimeSelection(runtime_lines, words, strings)

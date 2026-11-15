@@ -29,7 +29,6 @@ from mips_ir import COMMENT, LABEL, Asm, FunctionMeta, MIPSProgram, ascii_only
 from mips_regalloc import RegisterAllocator
 from mips_runtime import (
     KIND_BOOL, KIND_DYNAMIC, KIND_INT, KIND_OBJECT, KIND_STRING, RUNTIME_LABELS,
-    runtime_string_lines, runtime_text_lines, runtime_word_lines,
 )
 
 COMPARISONS = {"==", "!=", "<", "<=", ">", ">="}
@@ -233,18 +232,9 @@ class MIPSGenerator:
             handler_labels.extend(self.asm_label(h) for h in unit.try_labels)
 
         result = MIPSProgram()
-        result.header = [
-            "# =====================================================================",
-            "# Codigo MIPS generado por el compilador de Compiscript (Proyecto 3)",
-            "# Compatible con MARS 4.5, SPIM y QtSpim.",
-            "# Registros: $s0-$s7 variables locales, $t0-$t7 temporales (getReg),",
-            "#            $t8-$t9 auxiliares, $a0-$a3 argumentos, $v0 resultado,",
-            "#            $v1 enlace de acceso, $fp/$sp registro de activacion.",
-            "# =====================================================================",
-        ]
+        result.header = []
         result.data = self._data_section()
         result.text = text
-        result.runtime = runtime_text_lines()
         result.functions = metas
         result.handler_labels = handler_labels
         result.local_labels = set(self.local_labels)
@@ -315,14 +305,12 @@ class MIPSGenerator:
                 entries = [self.class_names[name]] + [self.asm_label(impl) for _, impl in layout.methods]
                 slots = ", ".join(f"{m}" for m, _ in layout.methods) or "sin metodos"
                 lines.append(f"{self.vtables[name]}: .word {', '.join(entries)}    # {ascii_only(slots)}")
-        lines.append("# ---- datos de la biblioteca de runtime ----")
-        lines.extend(runtime_word_lines())
-        lines.append("# ---- cadenas ----")
-        for name in self.layout.class_layouts:
-            lines.append(self._string_directive(self.class_names[name], name))
-        for content, label in self.strings.items():
-            lines.append(self._string_directive(label, content))
-        lines.extend(runtime_string_lines())
+        if self.layout.class_layouts or self.strings:
+            lines.append("# ---- cadenas ----")
+            for name in self.layout.class_layouts:
+                lines.append(self._string_directive(self.class_names[name], name))
+            for content, label in self.strings.items():
+                lines.append(self._string_directive(label, content))
         return lines
 
     # ------------------------------------------------------------------ prólogo / epílogo

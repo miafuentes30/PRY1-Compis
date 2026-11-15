@@ -228,6 +228,8 @@ Cada regla tiene su prueba unitaria aislada (`PeepholeTests`), y la batería exi
 
 `mips_simulator.py` ensambla y ejecuta el subconjunto de MIPS que emite el compilador (instrucciones, pseudoinstrucciones `li`, `la`, `move`, `blt`, `bge`, …, directivas `.data`, `.text`, `.word`, `.asciiz`, `.byte` y los servicios 1, 4, 9, 10, 11 y 17) con el mismo mapa de memoria que MARS. Detecta referencias nulas, desbordamiento de pila (recursión infinita), límite de instrucciones (ciclos infinitos) y saltos inválidos.
 
+El `.asm` solo incluye las rutinas del runtime y las cadenas que el programa usa.
+
 El mismo `.asm` se ejecuta sin cambios en:
 
 * **MARS 4.5** — incluido en `herramientas/Mars4_5.jar` (licencia MIT en `herramientas/MARS_LICENCIA.txt`). Requiere Java 8+.

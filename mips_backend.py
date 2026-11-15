@@ -88,4 +88,5 @@ def compile_tac(tac, symbols, classes, optimize_code: bool = True) -> MIPSResult
     report.instructions_before = report.instructions_after = program.instruction_count()
     if optimize_code:
         program.text, report = optimize(program.text, program.local_labels, program.return_labels)
-    return MIPSResult(program, program.render(), unoptimized, report, optimize_code)
+    optimized = program.render()
+    return MIPSResult(program, optimized, unoptimized, report, optimize_code)

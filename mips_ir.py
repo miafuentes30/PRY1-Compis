@@ -8,6 +8,8 @@ from __future__ import annotations
 import unicodedata
 from dataclasses import dataclass, field
 
+from mips_runtime import select_runtime
+
 LABEL = "label"
 COMMENT = "#"
 
@@ -77,13 +79,21 @@ class MIPSProgram:
         return sum(1 for line in self.text if line.is_instruction)
 
     def render(self) -> str:
+        text_lines = [line.render() for line in self.text]
+        runtime = select_runtime("\n".join(text_lines))
         lines = list(self.header)
         lines.append("        .data")
         lines.extend(self.data)
+        if runtime.words:
+            lines.append("# ---- datos de la biblioteca de runtime ----")
+            lines.extend(runtime.words)
+        if runtime.strings:
+            lines.append("# ---- cadenas de la biblioteca de runtime ----")
+            lines.extend(runtime.strings)
         lines.append("")
         lines.append("        .text")
         lines.append("        .globl main")
-        lines.extend(line.render() for line in self.text)
+        lines.extend(text_lines)
         lines.append("")
-        lines.extend(self.runtime)
+        lines.extend(runtime.text)
         return "\n".join(lines) + "\n"
