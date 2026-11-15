@@ -1,4 +1,9 @@
-"""IR de tres direcciones del Proyecto 2; no ejecuta programas ni genera código objeto."""
+"""IR de tres direcciones (Proyecto 2). El Proyecto 3 lo consume para generar MIPS.
+
+Cada instrucción conserva, además de sus argumentos, los tipos estáticos que el
+backend necesita (``types``) y una nota opcional (``note``). Ninguno de los dos
+cambia la forma textual del TAC.
+"""
 from __future__ import annotations
 from dataclasses import dataclass, field
 
@@ -8,6 +13,11 @@ class Instruction:
     opcode: str
     args: tuple[str, ...] = ()
     source_line: int = 0
+    # Tipos estáticos de los operandos relevantes (p. ej. BIN: izq, der, resultado;
+    # PRINT: valor; GET_FIELD/SET_FIELD/CALL_METHOD: clase estática del receptor).
+    types: tuple[str, ...] = ()
+    # Marca auxiliar para el backend ("literal" = escritura de un literal de arreglo).
+    note: str = ''
 
     def __str__(self) -> str:
         op, a = self.opcode, self.args
@@ -45,12 +55,30 @@ class Instruction:
 
 
 @dataclass
+class FunctionInfo:
+    """Metadatos de una unidad de código (main, función, método o inicializador)."""
+    label: str                      # etiqueta TAC: main, f@s0, Clase.metodo, Clase.$fields
+    kind: str                       # main | function | method | fields
+    scope_id: int                   # ámbito propio de la función en la tabla de símbolos
+    parent_scope: int = 0           # ámbito donde fue declarada
+    owner_class: str | None = None
+    params: tuple[str, ...] = ()    # nombres TAC de los parámetros (sin this)
+    return_type: str = 'void'
+    line: int = 0
+
+    @property
+    def has_this(self) -> bool:
+        return self.kind in {'method', 'fields'}
+
+
+@dataclass
 class TACProgram:
     instructions: list[Instruction] = field(default_factory=list)
     peak_temporaries: int = 0
     allocated_temporaries: int = 0
     reused_temporaries: int = 0
     frame_temporaries: dict[str, int] = field(default_factory=dict)
+    functions: dict[str, FunctionInfo] = field(default_factory=dict)
 
     def render(self, numbered: bool = False) -> str:
         if not numbered:

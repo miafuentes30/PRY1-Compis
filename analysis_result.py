@@ -17,10 +17,19 @@ class FullAnalysisResult:
     symbol_table: SymbolTable | None = None
     classes: dict[str, Any] = field(default_factory=dict)
     tac: Any | None = None
+    mips: Any | None = None          # mips_backend.MIPSResult (Proyecto 3)
 
     @property
     def tac_text(self) -> str:
         return self.tac.render() if self.tac is not None else ""
+
+    @property
+    def mips_text(self) -> str:
+        return self.mips.asm if self.mips is not None else ""
+
+    @property
+    def generation_errors(self) -> list[AnalysisError]:
+        return [e for e in self.errors if e.error_type == "Generación"]
 
     @property
     def lexical_errors(self) -> list[AnalysisError]:

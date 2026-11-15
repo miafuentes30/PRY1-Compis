@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from antlr4 import CommonTokenStream, InputStream
@@ -12,6 +13,11 @@ from generated.CompiscriptParser import CompiscriptParser
 from reserved_word_diagnostics import find_reserved_word_typos, suppress_consequential_syntax_errors
 from semantic_analyzer import SemanticAnalyzer
 from tac_generator import TACGenerator, TACGenerationError
+from mips_backend import CodegenError, compile_tac
+
+
+# Las expresiones muy anidadas recorren muchos niveles de la gramática.
+sys.setrecursionlimit(max(sys.getrecursionlimit(), 12000))
 
 
 class RecoveringErrorStrategy(DefaultErrorStrategy):
@@ -22,6 +28,11 @@ class CompiscriptAnalyzer:
     """Pipeline léxico + sintáctico + semántico de Compiscript."""
 
     MAX_ERRORS = 300
+
+    def __init__(self, generate_mips: bool = True, optimize_mips: bool = True) -> None:
+        # Proyecto 3: tras un TAC válido se genera ensamblador MIPS (con mirilla).
+        self.generate_mips = generate_mips
+        self.optimize_mips = optimize_mips
 
     def analyze_full_text(self, source: str) -> FullAnalysisResult:
         input_stream = InputStream(source)
@@ -74,6 +85,19 @@ class CompiscriptAnalyzer:
                     source_excerpt=source.splitlines()[0] if source.splitlines() else "",
                     code="TAC_UNSUPPORTED",
                 ))
+        mips = None
+        if tac is not None and not errors and self.generate_mips:
+            try:
+                mips = compile_tac(tac, symbol_table, classes, optimize_code=self.optimize_mips)
+            except (CodegenError, KeyError, ValueError, IndexError, AttributeError, TypeError, RuntimeError) as exc:
+                tac_line = 1
+                errors.append(AnalysisError(
+                    error_type="Generación", line=tac_line, column=1, symbol="MIPS",
+                    description=f"No se pudo generar código MIPS: {exc}",
+                    suggestion="Reescribe la construcción indicada; el TAC sigue disponible para revisión.",
+                    source_excerpt=source.splitlines()[0] if source.splitlines() else "",
+                    code="MIPS_UNSUPPORTED",
+                ))
         errors = sorted(errors, key=lambda err: (err.line, err.column, err.error_type, err.code))[: self.MAX_ERRORS]
         return FullAnalysisResult(
             source=source,
@@ -84,6 +108,7 @@ class CompiscriptAnalyzer:
             symbol_table=symbol_table,
             classes=classes,
             tac=tac,
+            mips=mips,
         )
 
     def analyze_text(self, source: str) -> list[AnalysisError]:

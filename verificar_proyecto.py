@@ -197,17 +197,37 @@ def verify_regressions() -> tuple[int, int]:
     return passed, result.testsRun
 
 
+def verify_mips() -> tuple[int, int]:
+    """Proyecto 3: batería de generación de código MIPS (ver verificar_mips.py)."""
+    import verificar_mips
+    external: list[str] = []
+    if "--externo" in sys.argv:
+        from mips_external import available_simulators
+        external = available_simulators()
+    passed, total = verificar_mips.verify_mips_suite(external)
+    unit_passed, unit_total = verificar_mips.run_unit_tests()
+    return passed + unit_passed, total + unit_total
+
+
 def main() -> int:
     ensure_generated()
-    p1, t1 = verify_semantic_suite()
-    p2, t2 = verify_recovery_suite()
-    p3, t3 = verify_symbol_table()
-    p4, t4 = verify_tac_suite()
-    p5, t5 = verify_tac_invariants()
-    p6, t6 = verify_regressions()
+    results = [
+        verify_semantic_suite(),
+        verify_recovery_suite(),
+        verify_symbol_table(),
+        verify_tac_suite(),
+        verify_tac_invariants(),
+        verify_regressions(),
+        verify_mips(),
+    ]
+    names = ["Semántica (P1)", "Recuperación (P1)", "Tabla de símbolos", "TAC (P2)",
+             "Invariantes TAC", "Regresiones (P2)", "MIPS (P3)"]
     print("=" * 72)
-    print(f"TOTAL: {p1 + p2 + p3 + p4 + p5 + p6}/{t1 + t2 + t3 + t4 + t5 + t6} verificaciones superadas.")
-    return 0 if all(p == t for p, t in [(p1,t1),(p2,t2),(p3,t3),(p4,t4),(p5,t5),(p6,t6)]) else 1
+    print("RESUMEN")
+    for name, (passed, total) in zip(names, results):
+        print(f"  {name:24} {passed:>4}/{total:<4} {'CUMPLE' if passed == total else 'REVISAR'}")
+    print(f"TOTAL: {sum(p for p, _ in results)}/{sum(t for _, t in results)} verificaciones superadas.")
+    return 0 if all(p == t for p, t in results) else 1
 
 
 if __name__ == "__main__":
